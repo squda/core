@@ -161,31 +161,72 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 ## Phase 5 — The profile store ("memory")
 
-> **Open decision — resolve this at the start of the phase.** "Memory" could mean three different things:
+> ### Decision — resolved 2026-08-09
+>
+> The three candidate meanings of "memory" were:
 > **(a)** a flat structured profile — `{ firstName, email, phone, addressLine1 }`;
 > **(b)** an embedding store, so "what is your postal code?" fuzzy-matches to `zip`;
 > **(c)** an append-only log of past submissions, learning from what you've filled before.
 >
-> **This plan assumes (a).** It's the simplest thing that works, and it teaches schema design cleanly. (b) becomes a natural upgrade in Phase 6; (c) is a later addition. Decide together and write down why.
+> **We are building all three, because they are not alternatives — they are three different jobs.**
+> (a) is *where values live*. (b) is a *translator* from a form's wording to our canonical keys.
+> (c) is a *diary* of every value ever entered or corrected.
+>
+> **Why:** forms name the same thing in wildly different ways, so we need (b); and user
+> information should accumulate as we go rather than being hand-maintained, so we need (c).
+> But neither (b) nor (c) can answer the only question the filler actually asks — *what is this
+> person's postal code right now?* — so (a) stays. It is no longer hand-maintained, though:
+> **the profile is a projection of the log**, computed by folding the events and taking the
+> most recent (or highest-trust) value per canonical key.
+>
+> The two compound. Every correction in Phase 8 appends an event that carries a *real* label
+> from a *real* form, which then feeds the embedding index. Embedding only our own invented
+> alias list would be fuzzy string matching with extra steps; embedding labels the world has
+> actually shown us is what makes (b) earn its place.
+>
+> **Sequencing: the log lands in Phase 5, the embeddings in Phase 6.**
+> The log is structural and cannot be retrofitted — a month of overwriting rows leaves no
+> history to recover. The embedding index is *derived data*: rebuildable from the log at any
+> time, with no migration and nothing lost. It also belongs in Phase 6 on the merits, since
+> it is a matching layer; building it in Phase 5 means guessing what a matcher we haven't
+> written yet will need.
+>
+> **Accepted cost:** Phase 5 is meaningfully bigger than a plain profile table would have been.
 
-**Goal:** store a user's information and read it back.
+**Goal:** record everything we know about the user as an append-only log, and read the current profile back out of it.
 
 **Steps**
 
-1. Design the profile schema. Group it: identity, contact, address, employment, documents. Every field gets a canonical key (`address.postalCode`) and a set of **aliases** (`zip`, `zipcode`, `pin code`, `postcode`) — the aliases are what Phase 6 matches against.
+1. Design the profile schema. Group it: identity, contact, address, employment, documents. Every field gets a canonical key (`address.postalCode`) and a set of **aliases** (`zip`, `zipcode`, `pin code`, `postcode`) — the aliases are the seed vocabulary the Phase 6 matcher and embedding index both build on.
 2. SQLite via **Drizzle ORM**, with migrations from day one.
-3. CRUD API: `GET/PUT /profile`, plus per-field update.
-4. A `sensitive` flag on fields (national ID, DOB, card details) that the filler must treat differently later.
-5. Seed one real profile for yourselves to test with.
+3. The **event log** — append-only, never updated, never deleted:
+   ```ts
+   FieldEvent = {
+     id, observedAt,
+     canonicalKey,           // 'address.postalCode'
+     value,
+     source,                 // 'seed' | 'user-edit' | 'form-fill' | 'correction'
+     confidence,
+     observedLabel?,         // the exact text the form used, when it came from a form
+     url?                    // where we saw it
+   }
+   ```
+   `observedLabel` is the field that makes Phase 6's index worth building — guard it.
+4. The **projection**: `getProfile()` folds the log into current values per canonical key. Write it as a pure function over events so it's testable without a database. Decide and write down the resolution rule when two events disagree (most recent? highest confidence? `user-edit` always beats `form-fill`?).
+5. Writes go through `appendEvent()` only. No `UPDATE` on a value anywhere in the codebase — if you catch one in review, that's a bug.
+6. API: `GET /profile` (the projection), `PUT /profile` and per-field update (which append rather than overwrite), and `GET /profile/:key/history` (the log for one key — you will want this the first time a fill goes wrong).
+7. A `sensitive` flag on fields (national ID, DOB, card details) that the filler must treat differently later.
+8. Seed one real profile for yourselves to test with — as `source: 'seed'` events, like everything else.
 
-**Done when:** you can write a profile through the API, restart the process, and read it back intact.
+**Done when:** you can write a profile through the API, restart the process, read it back intact, and see the full history of any single field. Deleting the projection and recomputing it from the log gives you byte-identical output.
 
-**Split the work:** one designs the schema + alias vocabulary (this is more thinking than typing); the other does Drizzle, migrations, and the API.
+**Split the work:** one designs the schema + alias vocabulary + the projection's resolution rule (this is more thinking than typing); the other does Drizzle, migrations, the append path, and the API.
 
 **What you'll learn**
 - Data modelling: canonical keys vs. the many names the world uses for the same thing. This is a **domain modelling** exercise, and the alias table *is* your domain vocabulary.
+- **Event sourcing, in its smallest honest form:** state as a fold over an immutable log, and why "current value" being *derived* rather than *stored* buys you history, debuggability, and undo for free.
 - Migrations, and why you want them before you have data rather than after.
-- Handling personal data deliberately — what's sensitive, what you'd encrypt, what you'd refuse to store at all.
+- Handling personal data deliberately — what's sensitive, what you'd encrypt, what you'd refuse to store at all. Note the tension an append-only log creates with deletion, and write down how you'd honour "delete my data" against a store that never deletes.
 - Repository-pattern separation between storage and the rest of the app.
 
 ---
@@ -206,7 +247,9 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
    - **Normalised:** lowercase, strip punctuation, singularise, then compare (`first_name` → `firstname`).
    - **Type-constrained:** `type="email"` narrows candidates to email-ish profile keys.
    - **Fuzzy:** string distance over labels, above a threshold.
+   - **Semantic (the (b) half of the Phase 5 decision):** embed the form's label and compare it against an index built from every canonical key, its aliases, *and* every `observedLabel` the event log has ever recorded for that key. Cosine similarity, above a threshold. This is the layer that catches "PIN code" → `address.postalCode` when no string rule would.
    - **LLM fallback:** send the unmatched labels plus the profile keys to Claude and ask for a mapping with reasons. Use it as the *last* layer, not the first.
+   Build the index as a plain array of vectors and compare in a loop — at a few hundred entries that is microseconds, and no vector database earns its keep here. Rebuild it from the log on startup; it's derived data, so it is always safe to throw away.
 3. Every entry carries a `reason` explaining why the match was made. Non-negotiable — without it you cannot debug a wrong fill.
 4. Value formatting: dates to the form's expected format, phone numbers with/without country code, selects mapped to a valid `option` value rather than free text.
 5. Confidence thresholds: auto-fill above, flag for review below.
@@ -214,11 +257,11 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** feeding in a real job-application FormSpec produces a correct FillPlan you'd be happy to execute, and each entry explains itself.
 
-**Split the work:** one builds the deterministic layers 1–4; the other builds the LLM fallback and the formatters. They share the `FillPlan` type.
+**Split the work:** one builds the deterministic layers 1–4; the other builds the embedding index, the LLM fallback, and the formatters. They share the `FillPlan` type.
 
 **What you'll learn**
 - Layered matching: exhaust cheap deterministic rules before reaching for a model. Most "AI features" are 80% rules.
-- String normalisation and fuzzy matching (Levenshtein / Jaro-Winkler) — and where they fail.
+- String normalisation and fuzzy matching (Levenshtein / Jaro-Winkler) — and where they fail. Then, directly above it, where embeddings succeed for exactly the cases string distance can't reach, and what they cost you in latency and explainability.
 - Prompt design for **structured output**, and validating the model's JSON with Zod because it will eventually return something malformed.
 - Designing for explainability: confidence scores and reasons as a first-class output.
 - The value of a pure function — this whole phase is testable in milliseconds because nothing in it touches the world.
@@ -276,11 +319,15 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 ## Deliberately not in this plan
 
-Note these down, resist them until Phase 8 ships: authentication and multi-user support, deployment/hosting, a browser extension, CAPTCHA handling, filling behind logins, embedding-based semantic matching, resume/document parsing, a real job queue (BullMQ), rate-limit/proxy infrastructure.
+Note these down, resist them until Phase 8 ships: authentication and multi-user support, deployment/hosting, a browser extension, CAPTCHA handling, filling behind logins, resume/document parsing, a real job queue (BullMQ), rate-limit/proxy infrastructure.
+
+~~embedding-based semantic matching~~ — pulled *into* scope by the Phase 5 decision above, as a Phase 6 matching layer. It is the one thing we deliberately added to this plan; everything else on this list stays out.
+
+A vector database stays out too. If brute-force cosine over a few hundred vectors ever becomes the bottleneck, that is a genuinely good problem and you can revisit it then.
 
 ---
 
 ## Two things to agree on before writing any code
 
-1. **Which "memory" you're building** (Phase 5's open decision). Write the answer down.
+1. ~~**Which "memory" you're building** (Phase 5's open decision). Write the answer down.~~ — **Settled 2026-08-09: all three, layered.** See the decision block in Phase 5.
 2. **That the FormSpec schema is settled between you before Phase 4 starts.** It's the contract two people build against in parallel; changing it mid-phase costs both of you.

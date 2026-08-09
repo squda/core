@@ -1,0 +1,32 @@
+{
+  "name": "core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrape": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "cheerio": "^1.0.0",
+    "jsdom": "^24.1.0",
+    "turndown": "^7.2.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^20.14.0",
+    "@types/turndown": "^5.0.4",
+    "eslint": "^9.7.0",
+    "prettier": "^3.3.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^7.16.0",
+    "vitest": "^2.0.0"
+  }
+}
