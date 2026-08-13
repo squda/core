@@ -6,44 +6,13 @@ import {
   UnsupportedContentTypeError,
 } from '../src/errors.js';
 import { fetchPage } from '../src/fetch.js';
+import { fakeResponse, redirectResponse, stubFetch } from './helpers.js';
 
 /**
  * No network here either. We stub global fetch and assert on what fetchPage
  * does with each shape of response — the point of the exercise is the error
  * taxonomy, and you cannot make a real server 404 on demand.
  */
-
-interface FakeResponseInit {
-  status?: number;
-  contentType?: string | null;
-  /** Where the request landed after redirects. Defaults to the requested url. */
-  url?: string;
-  body?: string;
-}
-
-function fakeResponse(requestedUrl: string, init: FakeResponseInit = {}): Response {
-  const status = init.status ?? 200;
-  const headers = new Headers();
-  const contentType =
-    init.contentType === undefined ? 'text/html; charset=utf-8' : init.contentType;
-  if (contentType !== null) headers.set('content-type', contentType);
-
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    url: init.url ?? requestedUrl,
-    headers,
-    body: null,
-    text: async () => init.body ?? '<html></html>',
-  } as unknown as Response;
-}
-
-function stubFetch(impl: (url: string) => Response | Promise<Response>): void {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (url: string) => impl(url)),
-  );
-}
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -64,12 +33,30 @@ describe('fetchPage', () => {
   // finalUrl is what markdown.ts resolves relative links against. Swap these
   // two and every link on a redirecting site comes out pointing at the wrong host.
   it('records where a redirect landed in finalUrl, leaving url alone', async () => {
-    stubFetch((url) => fakeResponse(url, { url: 'https://www.example.com/a/' }));
+    stubFetch((url) =>
+      url === 'https://example.com/a'
+        ? redirectResponse('https://www.example.com/a/')
+        : fakeResponse(url),
+    );
 
     const doc = await fetchPage('https://example.com/a');
 
     expect(doc.url).toBe('https://example.com/a');
     expect(doc.finalUrl).toBe('https://www.example.com/a/');
+  });
+
+  it('resolves a relative Location against the page that sent it', async () => {
+    stubFetch((url) =>
+      url === 'https://example.com/a' ? redirectResponse('/b') : fakeResponse(url),
+    );
+
+    expect((await fetchPage('https://example.com/a')).finalUrl).toBe('https://example.com/b');
+  });
+
+  it('gives up rather than following a redirect loop forever', async () => {
+    stubFetch(() => redirectResponse('https://example.com/loop'));
+
+    await expect(fetchPage('https://example.com/loop')).rejects.toMatchObject({ kind: 'network' });
   });
 
   it('sends a browser User-Agent', async () => {

@@ -11,6 +11,7 @@ import {
   NetworkError,
   UnsupportedContentTypeError,
 } from './errors.js';
+import { assertFetchable } from './ssrf.js';
 import { USER_AGENT } from './user-agent.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
 import type { HtmlDocument } from './types.js';
@@ -98,7 +99,14 @@ export class BrowserStrategy implements FetchStrategy {
       waitUntil = 'networkidle',
       dismissConsent = true,
       scrollPasses = 0,
+      allowPrivate,
     } = { ...this.defaults, ...options };
+
+    // Same guard as the HTTP path, and the browser needs it more: Chromium
+    // follows its own redirects, so the check has to live on each navigation
+    // rather than only on the url we were handed.
+    const guard = allowPrivate === undefined ? {} : { allowPrivate };
+    await assertFetchable(url, guard);
 
     const browser = await this.#launch();
 
@@ -106,6 +114,20 @@ export class BrowserStrategy implements FetchStrategy {
     // Cheap — unlike a browser, a context is just an isolated profile.
     const context: BrowserContext = await browser.newContext({ userAgent: USER_AGENT });
     const page = await context.newPage();
+
+    // Every document navigation is re-checked, which is what catches a public
+    // page redirecting to 127.0.0.1 inside the browser where we cannot see it.
+    let blocked: Error | null = null;
+    await context.route('**/*', async (route, request) => {
+      if (!request.isNavigationRequest()) return route.continue();
+      try {
+        await assertFetchable(request.url(), guard);
+        return route.continue();
+      } catch (error) {
+        blocked = error as Error;
+        return route.abort('blockedbyclient');
+      }
+    });
 
     // Closing the context is how a navigation gets cancelled: Playwright has no
     // abort on goto(), so the page has to go away underneath it.
@@ -138,6 +160,9 @@ export class BrowserStrategy implements FetchStrategy {
         fetchedAt: new Date(),
       };
     } catch (error) {
+      // A navigation we aborted surfaces as a generic net::ERR — report the
+      // reason we aborted it, not the symptom.
+      if (blocked) throw blocked;
       throw translate(error, url, timeoutMs);
     } finally {
       options.signal?.removeEventListener('abort', abort);

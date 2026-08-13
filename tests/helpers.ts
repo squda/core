@@ -74,3 +74,15 @@ export function htmlDocument(html: string, overrides: Partial<HtmlDocument> = {}
     ...overrides,
   };
 }
+
+/** A 302 pointing somewhere else. Redirects are followed by hand, so tests build the chain. */
+export function redirectResponse(location: string, status = 302): Response {
+  return {
+    ok: false,
+    status,
+    url: 'about:redirect',
+    headers: new Headers({ location }),
+    body: null,
+    text: async () => '',
+  } as unknown as Response;
+}

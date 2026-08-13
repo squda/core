@@ -6,7 +6,7 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { BrowserPool } from './browser-pool.js';
 import { SqliteCache, type ScrapeCache } from './cache.js';
-import { FetchError, HttpStatusError } from './errors.js';
+import { BlockedAddressError, FetchError, HttpStatusError } from './errors.js';
 import { Logger } from './log.js';
 import { JobQueue, QueueFullError, type JobError } from './queue.js';
 import { scrape as defaultScrape } from './scrape.js';
@@ -259,6 +259,9 @@ async function readRequest(context: Context<AppEnv>): Promise<ParsedRequest> {
  * would have.
  */
 export function describeError(error: unknown): JobError & { upstreamStatus?: number } {
+  if (error instanceof BlockedAddressError) {
+    return { code: 'blocked-address', message: error.message };
+  }
   if (error instanceof InvalidUrlError) {
     return { code: 'invalid-url', message: error.message };
   }
@@ -273,6 +276,8 @@ export function describeError(error: unknown): JobError & { upstreamStatus?: num
 }
 
 function statusFor(error: unknown): 400 | 415 | 500 | 502 | 504 {
+  // The caller asked for something they may not have. Not a network failure.
+  if (error instanceof BlockedAddressError) return 400;
   if (error instanceof InvalidUrlError) return 400;
   if (error instanceof FetchError) return STATUS_BY_FETCH_KIND[error.kind];
   return 500;
@@ -285,7 +290,10 @@ function log(context: Context<AppEnv>): Logger {
 
 function respondToFailure(context: Context<AppEnv>, error: unknown): Response {
   const described = describeError(error);
-  const expected = error instanceof FetchError || error instanceof InvalidUrlError;
+  const expected =
+    error instanceof FetchError ||
+    error instanceof InvalidUrlError ||
+    error instanceof BlockedAddressError;
 
   // Never leak a stack trace to a caller — it goes to the log instead, where
   // the request id makes it findable.

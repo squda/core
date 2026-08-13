@@ -36,4 +36,11 @@ export interface FetchOptions {
    * Separate from `timeoutMs`, which is this fetch's own patience.
    */
   signal?: AbortSignal;
+  /**
+   * Permit private, loopback and link-local addresses.
+   *
+   * Off unless `SCRAPE_ALLOW_PRIVATE=1`. Secure by default: a local test
+   * server opts in, production never has to remember to opt out.
+   */
+  allowPrivate?: boolean;
 }

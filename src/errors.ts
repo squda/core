@@ -62,6 +62,21 @@ export class UnsupportedContentTypeError extends FetchError {
 }
 
 /**
+ * Thrown when a url resolves to an address inside the network — loopback,
+ * private, link-local (cloud metadata). Its own class because it is the
+ * caller's mistake, not the network's: it answers 400, never 502.
+ */
+export class BlockedAddressError extends Error {
+  constructor(
+    readonly url: string,
+    readonly address: string,
+  ) {
+    super(`refusing to fetch ${url}: ${address} is not a public address`);
+    this.name = 'BlockedAddressError';
+  }
+}
+
+/**
  * Thrown when a string isn't a URL we're willing to fetch. Raised before any
  * network call, which is why it is not a FetchError.
  */

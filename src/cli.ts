@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { FetchError, HttpStatusError, type FetchErrorKind } from './errors.js';
-import { InvalidUrlError } from './errors.js';
+import { BlockedAddressError, InvalidUrlError } from './errors.js';
 import { scrape } from './scrape.js';
 
 /**
@@ -30,13 +30,15 @@ options:
 
 exit codes:
   0 ok            2 invalid url     4 network failure   6 unsupported type
-  1 usage         3 timeout         5 http error        70 unexpected
+  1 usage         3 timeout         5 http error        7 blocked address
+                                                        70 unexpected
 `;
 
 const EXIT = {
   ok: 0,
   usage: 1,
   invalidUrl: 2,
+  blockedAddress: 7,
   unexpected: 70,
 } as const;
 
@@ -143,6 +145,14 @@ function usageError(streams: CliStreams, message: string): number {
  * on its own has never helped anyone.
  */
 function reportFailure(streams: CliStreams, error: unknown): number {
+  if (error instanceof BlockedAddressError) {
+    streams.err(
+      `error: ${error.message}\n` +
+        'this points inside a private network. Set SCRAPE_ALLOW_PRIVATE=1 to scrape a local server.\n',
+    );
+    return EXIT.blockedAddress;
+  }
+
   if (error instanceof InvalidUrlError) {
     streams.err(`error: ${error.message}\n`);
     return EXIT.invalidUrl;
