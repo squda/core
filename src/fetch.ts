@@ -127,6 +127,7 @@ export async function fetchPage(url: string, options: FetchOptions = {}): Promis
 
   return {
     url,
+    fetchedWith: 'http',
     finalUrl: response.url || url,
     html: await response.text(),
     contentType,

@@ -37,6 +37,7 @@ export function loadFixture(name: string): HtmlDocument {
 
   return {
     url: entry.url,
+    fetchedWith: 'http',
     finalUrl: entry.finalUrl,
     html,
     contentType: entry.contentType,

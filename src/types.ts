@@ -14,8 +14,17 @@ import { z } from 'zod';
  * you're mid-way through fixing something else.
  */
 
+/** Which FetchStrategy produced a document. */
+export type StrategyName = 'http' | 'browser';
+
 /** Raw result of getting a page. No parsing has happened yet. */
 export interface HtmlDocument {
+  /**
+   * How this page was fetched. Stamped by the strategy that produced it, so
+   * the fact travels with the data instead of being carried alongside it —
+   * `scrapeHtml` is a pure function and has no other way to know.
+   */
+  fetchedWith: StrategyName;
   /** The URL we were asked for, after normalisation. */
   url: string;
   /** Where we actually ended up, after redirects. May differ from `url`. */
@@ -42,6 +51,7 @@ export const ImageSchema = z.object({
 export const ScrapedDocumentSchema = z.object({
   url: z.string().url(),
   fetchedAt: z.coerce.date(),
+  fetchedWith: z.enum(['http', 'browser']),
   title: z.string(),
   description: z.string().nullable(),
   markdown: z.string(),

@@ -6,6 +6,7 @@ import { loadFixture } from './fixtures.js';
 function page(bodyHtml: string, headHtml = ''): HtmlDocument {
   return {
     url: 'https://example.com/p',
+    fetchedWith: 'http',
     finalUrl: 'https://example.com/p',
     html: `<!doctype html><html><head>${headHtml}</head><body>${bodyHtml}</body></html>`,
     contentType: 'text/html',

@@ -20,9 +20,13 @@ usage:
   pnpm scrape <url> [--format=md|json]
 
 options:
-  --format=md    print the markdown (default)
-  --format=json  print the whole ScrapedDocument
-  -h, --help     this
+  --format=md     print the markdown (default)
+  --format=json   print the whole ScrapedDocument
+  --browser=auto  retry with a browser when a page looks empty (default)
+  --browser=never plain HTTP only
+  --browser=always go straight to the browser
+  -v, --verbose   log which path was taken, on stderr
+  -h, --help      this
 
 exit codes:
   0 ok            2 invalid url     4 network failure   6 unsupported type
@@ -66,12 +70,16 @@ const processStreams: CliStreams = {
 export async function run(argv: string[], streams: CliStreams = processStreams): Promise<number> {
   let url: string | undefined;
   let format = 'md';
+  let browser = 'auto';
+  let verbose = false;
 
   try {
     const { values, positionals } = parseArgs({
       args: argv,
       options: {
         format: { type: 'string', default: 'md' },
+        browser: { type: 'string', default: 'auto' },
+        verbose: { type: 'boolean', short: 'v', default: false },
         help: { type: 'boolean', short: 'h', default: false },
       },
       allowPositionals: true,
@@ -84,6 +92,8 @@ export async function run(argv: string[], streams: CliStreams = processStreams):
 
     [url] = positionals;
     format = values.format;
+    browser = values.browser;
+    verbose = values.help === false && values.verbose;
 
     if (positionals.length > 1) {
       return usageError(streams, `expected one url, got ${positionals.length}`);
@@ -96,9 +106,20 @@ export async function run(argv: string[], streams: CliStreams = processStreams):
   if (format !== 'md' && format !== 'json') {
     return usageError(streams, `unknown format ${JSON.stringify(format)}, expected md or json`);
   }
+  if (browser !== 'auto' && browser !== 'never' && browser !== 'always') {
+    return usageError(
+      streams,
+      `unknown browser mode ${JSON.stringify(browser)}, expected auto, never or always`,
+    );
+  }
 
   try {
-    const doc = await scrape(url);
+    // The log goes to stderr so `pnpm scrape url > page.md` still gets clean
+    // markdown — the same reason errors do.
+    const doc = await scrape(url, {
+      browser,
+      log: verbose ? (message) => streams.err(`· ${message}\n`) : () => {},
+    });
     streams.out(format === 'json' ? JSON.stringify(doc, null, 2) + '\n' : doc.markdown + '\n');
     return EXIT.ok;
   } catch (error) {

@@ -76,6 +76,7 @@ export class BrowserStrategy implements FetchStrategy {
 
       return {
         url,
+        fetchedWith: 'browser',
         // page.url() after navigation — redirects and pushState both land here.
         finalUrl: page.url(),
         html: await page.content(),
