@@ -1,6 +1,9 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { serve } from '@hono/node-server';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
+import { SqliteCache, type ScrapeCache } from './cache.js';
 import { FetchError, HttpStatusError } from './fetch.js';
 import { scrape as defaultScrape } from './scrape.js';
 import { InvalidUrlError } from './url.js';
@@ -42,9 +45,18 @@ const STATUS_BY_FETCH_KIND = {
 export interface AppOptions {
   /** Injectable for tests, so the server can be exercised without a network. */
   scrape?: typeof defaultScrape;
+  /**
+   * Pass `null` for no caching at all.
+   *
+   * The cache lives here rather than inside scrape(): the core stays a
+   * function of its input, and a second adapter gets to choose its own policy.
+   * A CLI run wants the live page; a service answering the same URL a hundred
+   * times does not.
+   */
+  cache?: ScrapeCache | null;
 }
 
-export function createApp({ scrape = defaultScrape }: AppOptions = {}): Hono {
+export function createApp({ scrape = defaultScrape, cache = null }: AppOptions = {}): Hono {
   const app = new Hono();
 
   app.get('/health', (context) => context.json({ ok: true }));
@@ -79,8 +91,20 @@ export function createApp({ scrape = defaultScrape }: AppOptions = {}): Hono {
       );
     }
 
+    const { url, browser } = parsed.data;
+
     try {
-      const document = await scrape(parsed.data.url, { browser: parsed.data.browser });
+      // A cache lookup can throw on a url the normaliser rejects, so it sits
+      // inside the same try as the scrape and reports the same way.
+      const cached = cache?.get(url, browser) ?? null;
+      if (cached) {
+        context.header('x-cache', 'hit');
+        return context.json(cached);
+      }
+
+      const document = await scrape(url, { browser });
+      cache?.set(url, browser, document);
+      context.header('x-cache', 'miss');
       return context.json(document);
     } catch (error) {
       return respondToFailure(context, error);
@@ -121,6 +145,10 @@ const invokedDirectly =
 
 if (invokedDirectly) {
   const port = Number(process.env.PORT ?? 3000);
-  serve({ fetch: createApp().fetch, port });
-  console.log(`scrape service listening on http://localhost:${port}`);
+  const cachePath = process.env.CACHE_PATH ?? '.cache/scrape.db';
+  mkdirSync(dirname(cachePath), { recursive: true });
+
+  const app = createApp({ cache: new SqliteCache(cachePath) });
+  serve({ fetch: app.fetch, port });
+  console.log(`scrape service listening on http://localhost:${port} (cache: ${cachePath})`);
 }

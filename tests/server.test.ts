@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/server.js';
+import { SqliteCache } from '../src/cache.js';
 import {
   FetchTimeoutError,
   HttpStatusError,
@@ -7,6 +8,7 @@ import {
   UnsupportedContentTypeError,
 } from '../src/fetch.js';
 import { loadFixture } from './fixtures.js';
+import { scrapeHtml } from '../src/scrape.js';
 
 /**
  * Hono apps answer `app.request()` directly, so these run with no port, no
@@ -180,6 +182,67 @@ describe('upstream failures map to status codes', () => {
     expect(response.status).toBe(500);
     expect(text).not.toContain('secret.ts');
     expect(text).toContain('something went wrong');
+  });
+});
+
+describe('caching', () => {
+  it('serves the second request for a url without scraping again', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const url = 'https://overreacted.io/the-wet-codebase/';
+
+    const first = await post(app, { url });
+    const second = await post(app, { url });
+
+    expect(first.headers.get('x-cache')).toBe('miss');
+    expect(second.headers.get('x-cache')).toBe('hit');
+    expect(scrape).toHaveBeenCalledTimes(1);
+    expect(await second.json()).toEqual(await first.json());
+  });
+
+  // The Phase 1 url decision, visible from the outside at last.
+  it('counts a tracking-tagged url as the same page', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+
+    await post(app, { url: 'https://overreacted.io/the-wet-codebase/?utm_source=twitter' });
+    const second = await post(app, {
+      url: 'https://overreacted.io/the-wet-codebase/?utm_source=rss',
+    });
+
+    expect(second.headers.get('x-cache')).toBe('hit');
+    expect(scrape).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not serve an auto result to a browser=never request', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const url = 'https://overreacted.io/the-wet-codebase/';
+
+    await post(app, { url });
+    const second = await post(app, { url, browser: 'never' });
+
+    expect(second.headers.get('x-cache')).toBe('miss');
+    expect(scrape).toHaveBeenCalledTimes(2);
+  });
+
+  it('never caches a failure', async () => {
+    const scrape = vi.fn().mockRejectedValue(new HttpStatusError('https://a.test/', 500));
+    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+
+    await post(app, { url: 'https://a.test/' });
+    await post(app, { url: 'https://a.test/' });
+
+    expect(scrape).toHaveBeenCalledTimes(2);
+  });
+
+  it('works with no cache at all', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape });
+
+    const response = await post(app, { url: 'https://overreacted.io/the-wet-codebase/' });
+
+    expect(response.headers.get('x-cache')).toBe('miss');
   });
 });
 
