@@ -42,7 +42,7 @@ export interface JobCounts {
 export interface JobStore {
   /** Creates the job, or returns the unfinished one holding that identity. */
   claim(job: NewJob, now: number): Promise<{ job: Job; created: boolean }>;
-  update(id: string, patch: JobPatch, now: number): Promise<void>;
+  update(id: string, patch: JobPatch): Promise<void>;
   get(id: string): Promise<Job | null>;
   /** True for an id this store issued and has since dropped. Answers 410. */
   wasRetired(id: string): Promise<boolean>;

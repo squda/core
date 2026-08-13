@@ -26,7 +26,7 @@ describe('MemoryJobStore', () => {
   it('creates fresh work once the previous job has finished', async () => {
     const store = new MemoryJobStore();
     const first = await store.claim(job, now);
-    await store.update(first.job.id, { status: 'done', finishedAt: now }, now);
+    await store.update(first.job.id, { status: 'done', finishedAt: now });
 
     const second = await store.claim(job, now);
 
@@ -38,11 +38,7 @@ describe('MemoryJobStore', () => {
     const store = new MemoryJobStore();
     const { job: created } = await store.claim(job, now);
 
-    await store.update(
-      created.id,
-      { status: 'failed', error: { code: 'timeout', message: 'x' } },
-      now,
-    );
+    await store.update(created.id, { status: 'failed', error: { code: 'timeout', message: 'x' } });
 
     expect(await store.get(created.id)).toMatchObject({
       status: 'failed',
@@ -63,7 +59,7 @@ describe('MemoryJobStore', () => {
     const store = new MemoryJobStore();
     await store.claim(job, now);
     const other = await store.claim({ ...job, url: 'https://b.test/', dedupeKey: 'b' }, now);
-    await store.update(other.job.id, { status: 'done', finishedAt: now }, now);
+    await store.update(other.job.id, { status: 'done', finishedAt: now });
 
     expect(await store.stats()).toMatchObject({ queued: 1, done: 1, inFlight: 1 });
   });
@@ -71,7 +67,7 @@ describe('MemoryJobStore', () => {
   it('sweeps finished jobs and remembers that they existed', async () => {
     const store = new MemoryJobStore();
     const { job: created } = await store.claim(job, now);
-    await store.update(created.id, { status: 'done', finishedAt: now }, now);
+    await store.update(created.id, { status: 'done', finishedAt: now });
 
     expect(await store.sweep(now + 1)).toBe(1);
     expect(await store.get(created.id)).toBeNull();
@@ -82,7 +78,7 @@ describe('MemoryJobStore', () => {
   it('never sweeps a job that is still running', async () => {
     const store = new MemoryJobStore();
     const { job: created } = await store.claim(job, now);
-    await store.update(created.id, { status: 'running', startedAt: now }, now);
+    await store.update(created.id, { status: 'running', startedAt: now });
 
     expect(await store.sweep(now + 10_000_000)).toBe(0);
     expect(await store.get(created.id)).not.toBeNull();

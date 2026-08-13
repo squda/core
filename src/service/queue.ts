@@ -149,7 +149,7 @@ export class JobQueue {
   }
 
   async #execute(job: Job): Promise<void> {
-    await this.#store.update(job.id, { status: 'running', startedAt: this.#now() }, this.#now());
+    await this.#store.update(job.id, { status: 'running', startedAt: this.#now() });
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#jobTimeoutMs);
@@ -159,17 +159,13 @@ export class JobQueue {
         this.#run(job.url, job.browser, controller.signal),
         timeout(controller.signal, this.#jobTimeoutMs),
       ]);
-      await this.#store.update(
-        job.id,
-        { status: 'done', document, finishedAt: this.#now() },
-        this.#now(),
-      );
+      await this.#store.update(job.id, { status: 'done', document, finishedAt: this.#now() });
     } catch (error) {
-      await this.#store.update(
-        job.id,
-        { status: 'failed', error: this.#describeError(error), finishedAt: this.#now() },
-        this.#now(),
-      );
+      await this.#store.update(job.id, {
+        status: 'failed',
+        error: this.#describeError(error),
+        finishedAt: this.#now(),
+      });
     } finally {
       clearTimeout(timer);
     }
