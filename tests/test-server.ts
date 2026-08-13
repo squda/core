@@ -38,6 +38,50 @@ const SPA = `<!doctype html>
   </script>
 </body></html>`;
 
+/** A consent overlay standing where the article should be, as many sites do. */
+const CONSENT = `<!doctype html>
+<html><head><title>Consent Wall</title></head><body>
+  <div id="cookie-banner" style="position:fixed;inset:0;background:#fff">
+    <p>We value your privacy.</p>
+    <button id="onetrust-accept-btn-handler" onclick="
+      document.getElementById('cookie-banner').remove();
+      document.getElementById('article').style.display = 'block';
+    ">Accept all</button>
+  </div>
+  <article id="article" style="display:none">
+    <h1>Behind The Banner</h1>
+    ${'<p>This paragraph is only readable once the consent banner has been dismissed, which is the whole point of the test.</p>'.repeat(4)}
+  </article>
+</body></html>`;
+
+/** Appends a batch of items each time you reach the bottom, forever. */
+const INFINITE = `<!doctype html>
+<html><head><title>Infinite Scroll</title></head><body>
+  <div id="feed">
+    <p style="height:900px">Item 0 of an endless feed that appends as you scroll.</p>
+  </div>
+  <script>
+    let batch = 0;
+    addEventListener('scroll', () => {
+      if (window.scrollY + window.innerHeight < document.body.scrollHeight - 10) return;
+      batch += 1;
+      const p = document.createElement('p');
+      p.textContent = 'Item ' + batch + ' of an endless feed that appends as you scroll.';
+      p.style.height = '900px';
+      document.getElementById('feed').append(p);
+    });
+  </script>
+</body></html>`;
+
+/** Polls forever, so networkidle never arrives. */
+const NEVER_IDLE = `<!doctype html>
+<html><head><title>Never Idle</title></head><body>
+  <article><h1>Still Readable</h1>
+  ${'<p>This page is perfectly readable, it simply never stops talking to the server.</p>'.repeat(4)}
+  </article>
+  <script>setInterval(() => fetch('/ping').catch(() => {}), 150);</script>
+</body></html>`;
+
 export interface TestServer {
   /** e.g. http://127.0.0.1:53124 — no trailing slash. */
   origin: string;
@@ -51,6 +95,26 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/spa') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(SPA);
+      return;
+    }
+    if (path === '/consent') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(CONSENT);
+      return;
+    }
+    if (path === '/infinite') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(INFINITE);
+      return;
+    }
+    if (path === '/never-idle') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(NEVER_IDLE);
+      return;
+    }
+    if (path === '/ping') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end('{}');
       return;
     }
     if (path === '/missing') {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/server.js';
 import { SqliteCache } from '../src/cache.js';
 import { BrowserPool } from '../src/browser-pool.js';
+import { Logger } from '../src/log.js';
 import {
   FetchTimeoutError,
   HttpStatusError,
@@ -9,6 +10,7 @@ import {
   UnsupportedContentTypeError,
 } from '../src/errors.js';
 import { loadFixture } from './fixtures.js';
+import { deferred } from './helpers.js';
 import { scrapeHtml } from '../src/scrape.js';
 
 /**
@@ -84,7 +86,10 @@ describe('POST /scrape', () => {
 
     await post(createApp({ scrape }), { url: 'https://a.test/', browser: 'never' });
 
-    expect(scrape).toHaveBeenCalledWith('https://a.test/', { browser: 'never' });
+    expect(scrape).toHaveBeenCalledWith(
+      'https://a.test/',
+      expect.objectContaining({ browser: 'never' }),
+    );
   });
 
   it('defaults the browser mode to auto', async () => {
@@ -92,7 +97,10 @@ describe('POST /scrape', () => {
 
     await post(createApp({ scrape }), { url: 'https://a.test/' });
 
-    expect(scrape).toHaveBeenCalledWith('https://a.test/', { browser: 'auto' });
+    expect(scrape).toHaveBeenCalledWith(
+      'https://a.test/',
+      expect.objectContaining({ browser: 'auto' }),
+    );
   });
 });
 
@@ -325,11 +333,140 @@ describe('the job flow', () => {
     expect((await response.json()).error.code).toBe('invalid-request');
   });
 
+  it('rejects a url it cannot use, without making the caller poll to find out', async () => {
+    const response = await createApp().request('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'javascript:alert(1)' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('invalid-url');
+  });
+
+  it('coalesces simultaneous requests for one page into a single job', async () => {
+    const gate = deferred();
+    const scrape = vi.fn(async () => {
+      await gate.promise;
+      return scrapeHtml(loadFixture('blog-post'));
+    });
+    const app = createApp({ scrape });
+    const url = 'https://overreacted.io/the-wet-codebase/';
+
+    const responses = await Promise.all(
+      ['?utm_source=a', '?utm_source=b', ''].map((suffix) =>
+        app.request('/jobs', { method: 'POST', body: JSON.stringify({ url: url + suffix }) }),
+      ),
+    );
+    const ids = await Promise.all(
+      responses.map(async (r) => ((await r.json()) as { id: string }).id),
+    );
+
+    expect(new Set(ids).size).toBe(1);
+    expect(scrape).toHaveBeenCalledTimes(1);
+
+    gate.resolve();
+  });
+
+  it('answers 503 with retry-after once the backlog is full', async () => {
+    const gate = deferred();
+    const scrape = vi.fn(async () => {
+      await gate.promise;
+      return scrapeHtml(loadFixture('blog-post'));
+    });
+    const app = createApp({ scrape, jobConcurrency: 1, maxQueued: 1 });
+
+    for (const path of ['a', 'b', 'c']) {
+      await app.request('/jobs', {
+        method: 'POST',
+        body: JSON.stringify({ url: `https://example.test/${path}` }),
+      });
+    }
+    const rejected = await app.request('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://example.test/d' }),
+    });
+
+    expect(rejected.status).toBe(503);
+    expect(rejected.headers.get('retry-after')).toBe('30');
+    expect((await rejected.json()).error.code).toBe('queue-full');
+
+    gate.resolve();
+  });
+
   it('404s an id it never issued', async () => {
     const response = await createApp().request('/jobs/does-not-exist');
 
     expect(response.status).toBe(404);
     expect((await response.json()).error.code).toBe('no-such-job');
+  });
+});
+
+describe('request logging', () => {
+  function captureLogs() {
+    const lines: Record<string, unknown>[] = [];
+    const logger = new Logger({}, { write: (line) => lines.push(JSON.parse(line)) });
+    return { logger, lines };
+  }
+
+  it('gives every request an id and echoes it back', async () => {
+    const { logger, lines } = captureLogs();
+    const app = createApp({ logger });
+
+    const response = await app.request('/health');
+    const id = response.headers.get('x-request-id');
+
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(lines.at(-1)).toMatchObject({ message: 'request', requestId: id, status: 200 });
+  });
+
+  // A proxy in front of us has usually assigned one already; keeping it is what
+  // makes a trace survive the hop.
+  it('keeps an id the caller supplied', async () => {
+    const { logger, lines } = captureLogs();
+    const app = createApp({ logger });
+
+    const response = await app.request('/health', { headers: { 'x-request-id': 'from-proxy' } });
+
+    expect(response.headers.get('x-request-id')).toBe('from-proxy');
+    expect(lines.at(-1)).toMatchObject({ requestId: 'from-proxy' });
+  });
+
+  it('logs what a scrape did, against the request that caused it', async () => {
+    const { logger, lines } = captureLogs();
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape, logger });
+
+    await post(app, { url: 'https://overreacted.io/the-wet-codebase/' });
+
+    expect(lines.some((line) => line.message === 'scraped' && line.fetchedWith === 'http')).toBe(
+      true,
+    );
+    expect(new Set(lines.map((line) => line.requestId)).size).toBe(1);
+  });
+
+  it('logs a failure as a warning, without a stack', async () => {
+    const { logger, lines } = captureLogs();
+    const scrape = vi.fn().mockRejectedValue(new HttpStatusError('https://a.test/', 403));
+    const app = createApp({ scrape, logger });
+
+    await post(app, { url: 'https://a.test/' });
+
+    const failure = lines.find((line) => line.message === 'request failed');
+    expect(failure).toMatchObject({ level: 'warn', code: 'http-status' });
+    expect(failure?.reason).toContain('403');
+    expect(failure).not.toHaveProperty('stack');
+  });
+
+  it('logs an unexpected error at error level, with the stack', async () => {
+    const { logger, lines } = captureLogs();
+    const scrape = vi.fn().mockRejectedValue(new Error('boom'));
+    const app = createApp({ scrape, logger });
+
+    await post(app, { url: 'https://a.test/' });
+
+    const failure = lines.find((line) => line.message === 'unexpected failure');
+    expect(failure).toMatchObject({ level: 'error' });
+    expect(String(failure?.stack)).toContain('boom');
   });
 });
 
@@ -341,7 +478,7 @@ describe('GET /health', () => {
     expect(await response.json()).toEqual({
       ok: true,
       browser: null,
-      jobs: { queued: 0, running: 0, done: 0, failed: 0 },
+      jobs: { queued: 0, running: 0, done: 0, failed: 0, inFlight: 0 },
     });
   });
 
@@ -353,7 +490,7 @@ describe('GET /health', () => {
     expect(await response.json()).toEqual({
       ok: true,
       browser: { active: 0, queued: 0, launches: 0, open: false },
-      jobs: { queued: 0, running: 0, done: 0, failed: 0 },
+      jobs: { queued: 0, running: 0, done: 0, failed: 0, inFlight: 0 },
     });
   });
 });

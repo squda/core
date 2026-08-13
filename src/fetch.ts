@@ -37,11 +37,15 @@ export type { FetchOptions };
 export async function fetchPage(url: string, options: FetchOptions = {}): Promise<HtmlDocument> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
+  // Whichever fires first: our patience, or the caller giving up.
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
+
   let response: Response;
   try {
     response = await fetch(url, {
       redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs),
+      signal,
       headers: {
         'User-Agent': USER_AGENT,
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -49,7 +53,9 @@ export async function fetchPage(url: string, options: FetchOptions = {}): Promis
       },
     });
   } catch (error) {
-    if (isTimeout(error)) throw new FetchTimeoutError(url, timeoutMs);
+    // A caller-side abort is not a timeout of ours, but it is still the end of
+    // this fetch; the caller already knows why it cancelled.
+    if (options.signal?.aborted || isTimeout(error)) throw new FetchTimeoutError(url, timeoutMs);
     throw new NetworkError(url, error);
   }
 

@@ -74,6 +74,80 @@ describe('the reason this class exists', () => {
   });
 });
 
+describe('the failure modes real pages have', () => {
+  // A consent overlay commonly renders *instead of* the article. Without a
+  // click, the page we scrape is the banner.
+  it('dismisses a consent banner and reads what was behind it', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const scraped = scrapeHtml(await strategy.fetch(`${server.origin}/consent`));
+
+      expect(scraped.markdown).toContain('Behind The Banner');
+      expect(scraped.markdown).toContain('only readable once the consent banner');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  it('leaves the banner alone when asked not to touch it', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/consent`, { dismissConsent: false });
+
+      expect(doc.html).toContain('id="cookie-banner"');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  it('reads a page that never goes idle, instead of timing out on it', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      // Well under the 30s a polling page would otherwise burn.
+      const scraped = scrapeHtml(
+        await strategy.fetch(`${server.origin}/never-idle`, { timeoutMs: 3_000 }),
+      );
+
+      expect(scraped.title).toBe('Never Idle');
+      expect(scraped.markdown).toContain('never stops talking to the server');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  it('collects more of an infinite feed when given scroll passes', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const without = await strategy.fetch(`${server.origin}/infinite`, { timeoutMs: 5_000 });
+      const with_ = await strategy.fetch(`${server.origin}/infinite`, {
+        timeoutMs: 5_000,
+        scrollPasses: 3,
+      });
+
+      expect(countItems(with_.html)).toBeGreaterThan(countItems(without.html));
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  it('stops scrolling early when the page stops growing', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const started = Date.now();
+      // A finite page: 20 passes must not cost 20 waits.
+      await strategy.fetch(`${server.origin}/`, { scrollPasses: 20 });
+
+      expect(Date.now() - started).toBeLessThan(5_000);
+    } finally {
+      await strategy.close();
+    }
+  });
+});
+
+function countItems(html: string): number {
+  return (html.match(/of an endless feed/g) ?? []).length;
+}
+
 describe('lifecycle', () => {
   it('launches one browser and reuses it across fetches', async () => {
     const launch = vi.spyOn(chromium, 'launch');

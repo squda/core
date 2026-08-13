@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { serve } from '@hono/node-server';
@@ -6,8 +7,10 @@ import { z } from 'zod';
 import { BrowserPool } from './browser-pool.js';
 import { SqliteCache, type ScrapeCache } from './cache.js';
 import { FetchError, HttpStatusError } from './errors.js';
-import { JobQueue, type JobError } from './queue.js';
+import { Logger } from './log.js';
+import { JobQueue, QueueFullError, type JobError } from './queue.js';
 import { scrape as defaultScrape } from './scrape.js';
+import { normaliseUrl } from './url.js';
 import { InvalidUrlError } from './errors.js';
 import type { ScrapedDocument } from './types.js';
 
@@ -28,6 +31,9 @@ import type { ScrapedDocument } from './types.js';
  * caller poll for a job they could have had inline is a worse API than having
  * two endpoints. Both share one path underneath, so neither can drift.
  */
+
+/** What a request carries beyond its body: the logger stamped with its id. */
+type AppEnv = { Variables: { log: Logger } };
 
 export const ScrapeRequestSchema = z.object({
   url: z.string().min(1, 'url is required'),
@@ -67,6 +73,10 @@ export interface AppOptions {
   pool?: BrowserPool;
   /** Jobs run at once. Distinct from the browser cap, which is stricter. */
   jobConcurrency?: number;
+  /** Jobs allowed to wait. Beyond this the service answers 429 rather than growing. */
+  maxQueued?: number;
+  /** Where structured logs go. Silent by default so tests don't shout. */
+  logger?: Logger;
 }
 
 export function createApp({
@@ -74,27 +84,73 @@ export function createApp({
   cache = null,
   pool,
   jobConcurrency = 4,
-}: AppOptions = {}): Hono {
+  maxQueued = 100,
+  logger = new Logger({}, { write: () => {} }),
+}: AppOptions = {}): Hono<AppEnv> {
   /** The one path to a document. Both endpoints go through it. */
   async function scrapeOnce(
     url: string,
     browser: string,
+    log: Logger,
+    signal?: AbortSignal,
   ): Promise<{ document: ScrapedDocument; cached: boolean }> {
     const cached = cache?.get(url, browser) ?? null;
-    if (cached) return { document: cached, cached: true };
+    if (cached) {
+      log.info('cache hit', { url, browser });
+      return { document: cached, cached: true };
+    }
 
-    const options = { browser: browser as ScrapeRequest['browser'] };
-    const document = await scrape(url, pool ? { ...options, pool } : options);
+    const document = await scrape(url, {
+      browser: browser as ScrapeRequest['browser'],
+      ...(pool ? { pool } : {}),
+      ...(signal ? { signal } : {}),
+      // scrape()'s own narration, stamped with this request's id.
+      log: (message) => log.debug(message, { url }),
+    });
     cache?.set(url, browser, document);
+    log.info('scraped', {
+      url,
+      browser,
+      fetchedWith: document.fetchedWith,
+      markdown: document.markdown.length,
+      ...(document.wall ? { wall: document.wall.kind } : {}),
+    });
     return { document, cached: false };
   }
 
-  const queue = new JobQueue(async (url, browser) => (await scrapeOnce(url, browser)).document, {
-    concurrency: jobConcurrency,
-    describeError,
-  });
+  const queue = new JobQueue(
+    async (url, browser, signal) =>
+      (await scrapeOnce(url, browser, logger.child({ job: true }), signal)).document,
+    {
+      concurrency: jobConcurrency,
+      maxQueued,
+      describeError,
+      // Deduplicate on the same identity the cache uses, so the utm variants of
+      // one page are one job rather than five.
+      keyOf: (url, browser) => `${browser}\n${normaliseUrl(url)}`,
+    },
+  );
 
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
+
+  /**
+   * Every request gets an id and a timing line.
+   *
+   * The id is taken from `x-request-id` when a proxy already assigned one, so a
+   * trace survives the hop, and echoed back so a caller can quote it in a bug
+   * report.
+   */
+  app.use('*', async (context, next) => {
+    const requestId = context.req.header('x-request-id') ?? randomUUID();
+    const log = logger.child({ requestId, method: context.req.method, path: context.req.path });
+
+    context.set('log', log);
+    context.header('x-request-id', requestId);
+
+    const started = Date.now();
+    await next();
+    log.info('request', { status: context.res.status, ms: Date.now() - started });
+  });
 
   app.get('/health', (context) =>
     context.json({ ok: true, browser: pool?.stats() ?? null, jobs: queue.stats() }),
@@ -108,7 +164,7 @@ export function createApp({
     try {
       // A cache lookup can throw on a url the normaliser rejects, so it sits
       // inside the same try as the scrape and reports the same way.
-      const { document, cached } = await scrapeOnce(url, browser);
+      const { document, cached } = await scrapeOnce(url, browser, log(context));
       context.header('x-cache', cached ? 'hit' : 'miss');
       return context.json(document);
     } catch (error) {
@@ -121,18 +177,39 @@ export function createApp({
     if ('response' in request) return request.response;
 
     const { url, browser } = request.data;
-    const job = queue.add(url, browser);
 
-    context.header('location', `/jobs/${job.id}`);
-    return context.json(job, 202);
+    try {
+      // Validated here rather than inside the job: making someone poll to
+      // discover they typed the url wrong is a bad way to say 400.
+      normaliseUrl(url);
+      const job = queue.add(url, browser);
+      log(context).info('job accepted', { jobId: job.id, url, browser });
+      context.header('location', `/jobs/${job.id}`);
+      return context.json(job, 202);
+    } catch (error) {
+      if (error instanceof QueueFullError) {
+        context.header('retry-after', '30');
+        return context.json({ error: { code: 'queue-full', message: error.message } }, 503);
+      }
+      return respondToFailure(context, error);
+    }
   });
 
   app.get('/jobs/:id', (context) => {
-    const job = queue.get(context.req.param('id'));
-    if (!job) {
-      return context.json({ error: { code: 'no-such-job', message: 'unknown job id' } }, 404);
+    const id = context.req.param('id');
+    const job = queue.get(id);
+    if (job) return context.json(job);
+
+    // Gone is not the same as never existed, and a caller polling a job we
+    // retired deserves to be told which one happened.
+    if (queue.wasRetired(id)) {
+      return context.json(
+        { error: { code: 'job-expired', message: 'this job finished and has since been retired' } },
+        410,
+      );
     }
-    return context.json(job);
+
+    return context.json({ error: { code: 'no-such-job', message: 'unknown job id' } }, 404);
   });
 
   return app;
@@ -141,7 +218,7 @@ export function createApp({
 type ParsedRequest = { data: ScrapeRequest } | { response: Response };
 
 /** Reads and validates a scrape request, or hands back the 400 to return. */
-async function readRequest(context: Context): Promise<ParsedRequest> {
+async function readRequest(context: Context<AppEnv>): Promise<ParsedRequest> {
   let body: unknown;
   try {
     body = await context.req.json();
@@ -201,12 +278,31 @@ function statusFor(error: unknown): 400 | 415 | 500 | 502 | 504 {
   return 500;
 }
 
-function respondToFailure(context: Context, error: unknown): Response {
-  // Never leak a stack trace to a caller. It goes to the log instead.
-  if (!(error instanceof FetchError) && !(error instanceof InvalidUrlError)) {
-    console.error('unexpected failure', error);
+/** The per-request logger, or a silent one outside a request. */
+function log(context: Context<AppEnv>): Logger {
+  return context.get('log') ?? new Logger({}, { write: () => {} });
+}
+
+function respondToFailure(context: Context<AppEnv>, error: unknown): Response {
+  const described = describeError(error);
+  const expected = error instanceof FetchError || error instanceof InvalidUrlError;
+
+  // Never leak a stack trace to a caller — it goes to the log instead, where
+  // the request id makes it findable.
+  // `reason`, not `message` — a field called message would overwrite the log
+  // line's own, which is how "request failed" silently became "got 403".
+  const fields = { code: described.code, reason: described.message };
+
+  if (expected) {
+    log(context).warn('request failed', fields);
+  } else {
+    log(context).error('unexpected failure', {
+      ...fields,
+      stack: error instanceof Error ? error.stack : String(error),
+    });
   }
-  return context.json({ error: describeError(error) }, statusFor(error));
+
+  return context.json({ error: described }, statusFor(error));
 }
 
 const invokedDirectly =
@@ -224,9 +320,10 @@ if (invokedDirectly) {
     idleMs: 30_000,
   });
 
-  const app = createApp({ cache: new SqliteCache(cachePath), pool });
+  const logger = new Logger({ service: 'scrape' });
+  const app = createApp({ cache: new SqliteCache(cachePath), pool, logger });
   serve({ fetch: app.fetch, port });
-  console.log(`scrape service listening on http://localhost:${port} (cache: ${cachePath})`);
+  logger.info('listening', { port, cachePath });
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

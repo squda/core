@@ -57,6 +57,8 @@ export interface ScrapeOptions {
    * configured to stay warm between requests.
    */
   pool?: BrowserPool;
+  /** Cancels the whole scrape, including a browser retry already under way. */
+  signal?: AbortSignal;
 }
 
 const httpStrategy = new HttpStrategy();
@@ -72,20 +74,21 @@ export async function scrape(
   rawUrl: string,
   options: ScrapeOptions = {},
 ): Promise<ScrapedDocument> {
-  const { browser = 'auto', strategy, log = () => {}, pool = defaultBrowserPool } = options;
+  const { browser = 'auto', strategy, log = () => {}, pool = defaultBrowserPool, signal } = options;
+  const fetchOptions = signal ? { signal } : {};
   const url = normaliseUrl(rawUrl);
 
   if (strategy) {
-    const doc = await strategy.fetch(url);
+    const doc = await strategy.fetch(url, fetchOptions);
     log(`fetched with ${strategy.name} (forced)`);
     return scrapeHtml(doc);
   }
 
   if (browser === 'always') {
-    return scrapeWithBrowser(url, pool, log, 'requested');
+    return scrapeWithBrowser(url, pool, log, 'requested', fetchOptions);
   }
 
-  const httpDoc = await httpStrategy.fetch(url);
+  const httpDoc = await httpStrategy.fetch(url, fetchOptions);
   const scraped = scrapeHtml(httpDoc);
 
   if (browser === 'never') {
@@ -99,7 +102,7 @@ export async function scrape(
     return scraped;
   }
 
-  return scrapeWithBrowser(url, pool, log, verdict.reason);
+  return scrapeWithBrowser(url, pool, log, verdict.reason, fetchOptions);
 }
 
 /**
@@ -111,11 +114,12 @@ async function scrapeWithBrowser(
   pool: BrowserPool,
   log: (message: string) => void,
   reason: string,
+  fetchOptions: { signal?: AbortSignal },
 ): Promise<ScrapedDocument> {
   const { queued } = pool.stats();
   log(`retrying with a browser — ${reason}${queued > 0 ? ` (${queued} waiting)` : ''}`);
 
-  const scraped = scrapeHtml(await pool.fetch(url));
+  const scraped = scrapeHtml(await pool.fetch(url, fetchOptions));
   log(`fetched with browser — ${scraped.markdown.length} characters of markdown`);
   return scraped;
 }

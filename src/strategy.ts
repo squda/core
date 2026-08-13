@@ -31,4 +31,9 @@ export interface FetchStrategy {
 
 export interface FetchOptions {
   timeoutMs?: number;
+  /**
+   * Cancels the fetch from outside — a job giving up, a client disconnecting.
+   * Separate from `timeoutMs`, which is this fetch's own patience.
+   */
+  signal?: AbortSignal;
 }

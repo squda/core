@@ -97,7 +97,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 4. Reuse one browser instance across scrapes instead of launching per-request — measure the difference.
 5. Handle the failure modes explicitly: timeout, 404, non-HTML content-type, infinite-scroll pages, cookie banners covering the content.
 
-**Done when:** a client-rendered page (any SPA-based site) produces the same quality of Markdown as a static one, and you can see in the logs which strategy ran. — **Done 2026-08-13**, bar step 5's remaining failure modes (cookie banners, infinite scroll).
+**Done when:** a client-rendered page (any SPA-based site) produces the same quality of Markdown as a static one, and you can see in the logs which strategy ran. — **Done 2026-08-14**, step 5 included: consent banners are dismissed before reading, `scrollPasses` gives infinite feeds a budget, and a page that never reaches `networkidle` falls back to `domcontentloaded` rather than timing out.
 
 **Order of work:** define `FetchStrategy` and retrofit the Phase 1 code as `HttpStrategy` _before_ Playwright exists — if the interface is right, adding `BrowserStrategy` afterwards touches nothing around it, and that's the phase's real lesson. Then get one SPA rendering, then the selection heuristic, then the error taxonomy last, once you've actually seen the failures rather than imagined them.
 
@@ -125,7 +125,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 6. Structured logging with a request id threaded through.
 7. **Make the queue safe under real load** (added 2026-08-14, once "production" became the target):
    - **Deduplicate in-flight work.** The same url submitted five times must be one scrape with
-     five subscribers, not five browser fetches. The cache only helps *after* the first finishes.
+     five subscribers, not five browser fetches. The cache only helps _after_ the first finishes.
    - **Bound the intake.** The limiter caps what runs, not what can be submitted; ten thousand
      POSTs is ten thousand jobs in memory. Reject past a queue depth with 429 and `Retry-After`.
    - **Per-job timeout and cancellation**, so one hung page can't hold a slot for its full 30s.
@@ -134,9 +134,11 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** you can `curl` a URL and get Markdown back, slow pages go through the job flow, and the second request for the same URL is served from cache.
 
-> **Progress.** Steps 1–5 done 2026-08-14: `POST /scrape` (sync), `POST /jobs` + `GET /jobs/:id`
-> (async), SQLite cache keyed on the normalised url, one shared browser behind a concurrency cap,
-> and `GET /health` reporting both. Steps 6 and 7 remain.
+> **Done 2026-08-14.** `POST /scrape` (sync), `POST /jobs` + `GET /jobs/:id` (async), SQLite cache
+> keyed on the normalised url, one shared browser behind a concurrency cap, JSON logs carrying a
+> request id from `x-request-id` through the queue and into `scrape()`, and a queue that
+> deduplicates in-flight urls, refuses work past a backlog limit (503 + `Retry-After`), aborts a
+> job that outruns its budget, and answers 410 rather than 404 for a job it retired.
 
 **Order of work:** HTTP layer first, as thin as you can make it — if the core needs _any_ change to get a second adapter, that's the finding. Then the cache (synchronous, easy to test), then the job queue, then the concurrency limit. Four separately demoable steps; resist building them at once.
 
@@ -374,7 +376,7 @@ what it is doing.
    means anyone can point it at `http://169.254.169.254/` (cloud metadata, and therefore your
    credentials), at `http://localhost:5432`, or at anything else inside your network. Before
    fetching: resolve the host, reject private, loopback, link-local and multicast ranges, and
-   re-check *after every redirect*, because a public url can redirect to `127.0.0.1`. This is the
+   re-check _after every redirect_, because a public url can redirect to `127.0.0.1`. This is the
    single most important item in the phase and the one most often missed.
 2. **Configuration by environment**, validated with Zod at boot, and a process that refuses to
    start on a bad config rather than failing on the first request. `PORT`, `CACHE_PATH`,

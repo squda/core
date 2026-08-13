@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { JobQueue } from '../src/queue.js';
+import { JobQueue, QueueFullError } from '../src/queue.js';
 import { deferred } from './helpers.js';
 import { scrapeHtml } from '../src/scrape.js';
 import { loadFixture } from './fixtures.js';
@@ -54,13 +54,13 @@ describe('accepting work', () => {
 
     await settle(queue, queue.add(URL_, 'always').id);
 
-    expect(run).toHaveBeenCalledWith(URL_, 'always');
+    expect(run).toHaveBeenCalledWith(URL_, 'always', expect.any(AbortSignal));
   });
 
-  it('hands out a different id per job', () => {
+  it('hands out a different id per distinct job', () => {
     const queue = new JobQueue(async () => DOCUMENT);
 
-    expect(queue.add(URL_, 'auto').id).not.toBe(queue.add(URL_, 'auto').id);
+    expect(queue.add(URL_, 'auto').id).not.toBe(queue.add('https://other.test/', 'auto').id);
   });
 
   it('returns a snapshot, not a live handle', async () => {
@@ -137,7 +137,10 @@ describe('concurrency', () => {
       { concurrency: 2 },
     );
 
-    const ids = Array.from({ length: 6 }, () => queue.add(URL_, 'auto').id);
+    const ids = Array.from(
+      { length: 6 },
+      (_unused, index) => queue.add(`https://example.test/page-${index}`, 'auto').id,
+    );
     await vi.waitFor(() => expect(queue.stats().running).toBe(2));
 
     // Four parked behind the cap — the reason the queue exists.
@@ -148,6 +151,134 @@ describe('concurrency', () => {
 
     expect(peak).toBe(2);
     expect(queue.stats()).toMatchObject({ done: 6, running: 0, queued: 0 });
+  });
+});
+
+describe('deduplication', () => {
+  // Five submissions of one url must be one fetch with five readers. The cache
+  // cannot help here: it only fills once the first finishes, which is exactly
+  // when the duplicates have already started.
+  it('returns the running job when the same page is asked for again', async () => {
+    const gate = deferred();
+    const run = vi.fn(async () => {
+      await gate.promise;
+      return DOCUMENT;
+    });
+    const queue = new JobQueue(run);
+
+    const jobs = Array.from({ length: 5 }, () => queue.add(URL_, 'auto'));
+
+    expect(new Set(jobs.map((job) => job.id)).size).toBe(1);
+    expect(run).toHaveBeenCalledTimes(1);
+
+    gate.resolve();
+    await settle(queue, jobs[0]!.id);
+  });
+
+  it('keeps different fetch modes as separate work', () => {
+    const run = vi.fn(async () => DOCUMENT);
+    const queue = new JobQueue(run, { keyOf: (url, browser) => `${browser}\n${url}` });
+
+    queue.add(URL_, 'auto');
+    queue.add(URL_, 'never');
+
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('coalesces urls that share an identity, when told how', async () => {
+    const run = vi.fn(async () => DOCUMENT);
+    const queue = new JobQueue(run, {
+      keyOf: (url, browser) => `${browser}\n${new URL(url).origin}${new URL(url).pathname}`,
+    });
+
+    const first = queue.add(`${URL_}?utm_source=twitter`, 'auto');
+    const second = queue.add(`${URL_}?utm_source=rss`, 'auto');
+
+    expect(second.id).toBe(first.id);
+    expect(run).toHaveBeenCalledTimes(1);
+    await settle(queue, first.id);
+  });
+
+  it('starts fresh work once the previous run has finished', async () => {
+    const run = vi.fn(async () => DOCUMENT);
+    const queue = new JobQueue(run);
+
+    const first = queue.add(URL_, 'auto');
+    await settle(queue, first.id);
+    const second = queue.add(URL_, 'auto');
+
+    expect(second.id).not.toBe(first.id);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('backpressure', () => {
+  // The limiter caps what runs, not what can be submitted. Without a bound,
+  // ten thousand POSTs are ten thousand jobs held in memory.
+  it('refuses work once the backlog is full', async () => {
+    const gate = deferred();
+    const queue = new JobQueue(
+      async () => {
+        await gate.promise;
+        return DOCUMENT;
+      },
+      { concurrency: 1, maxQueued: 2 },
+    );
+
+    queue.add('https://example.test/running', 'auto');
+    queue.add('https://example.test/waiting-1', 'auto');
+    queue.add('https://example.test/waiting-2', 'auto');
+
+    expect(() => queue.add('https://example.test/too-much', 'auto')).toThrow(QueueFullError);
+
+    gate.resolve();
+  });
+
+  it('accepts again once the backlog drains', async () => {
+    const gate = deferred();
+    const queue = new JobQueue(
+      async () => {
+        await gate.promise;
+        return DOCUMENT;
+      },
+      { concurrency: 1, maxQueued: 1 },
+    );
+
+    const running = queue.add('https://example.test/a', 'auto');
+    const waiting = queue.add('https://example.test/b', 'auto');
+    expect(() => queue.add('https://example.test/c', 'auto')).toThrow(QueueFullError);
+
+    gate.resolve();
+    await settle(queue, running.id);
+    await settle(queue, waiting.id);
+
+    expect(() => queue.add('https://example.test/c', 'auto')).not.toThrow();
+  });
+});
+
+describe('the timeout backstop', () => {
+  it('fails a job that outlives its budget, and tells the runner to stop', async () => {
+    let seen: AbortSignal | undefined;
+    const queue = new JobQueue(
+      async (_url, _browser, signal) => {
+        seen = signal;
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        return DOCUMENT;
+      },
+      { jobTimeoutMs: 30 },
+    );
+
+    const failed = await settle(queue, queue.add(URL_, 'auto').id);
+
+    expect(failed.status).toBe('failed');
+    expect(failed.error?.message).toContain('budget');
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it('leaves a job that finishes in time alone', async () => {
+    const queue = new JobQueue(async () => DOCUMENT, { jobTimeoutMs: 5_000 });
+
+    expect((await settle(queue, queue.add(URL_, 'auto').id)).status).toBe('done');
   });
 });
 
@@ -172,6 +303,12 @@ describe('retention', () => {
 
     clock += 2_000;
     expect(queue.get(job.id)).toBeNull();
+    // Retired, not imaginary — the caller gets 410 rather than 404.
+    expect(queue.wasRetired(job.id)).toBe(true);
+  });
+
+  it('does not claim to have retired an id it never issued', () => {
+    expect(new JobQueue(async () => DOCUMENT).wasRetired('never-existed')).toBe(false);
   });
 
   it('never evicts a job that is still running', async () => {

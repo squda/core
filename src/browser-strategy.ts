@@ -1,4 +1,10 @@
-import { chromium, type Browser, type BrowserContext } from 'playwright';
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type Response as Response_,
+} from 'playwright';
 import {
   FetchTimeoutError,
   HttpStatusError,
@@ -28,9 +34,50 @@ export interface BrowserFetchOptions extends FetchOptions {
    *   what the timeout is for.
    */
   waitUntil?: 'domcontentloaded' | 'load' | 'networkidle';
+  /**
+   * Click a cookie/consent button if one is in the way.
+   *
+   * Not cosmetic: consent overlays commonly render *instead of* the article
+   * until dismissed, so without this the page we scrape is the banner.
+   */
+  dismissConsent?: boolean;
+  /**
+   * Scroll to the bottom this many times, waiting for content after each.
+   *
+   * Zero by default. Infinite-scroll pages never end, so this is a budget, not
+   * a "load everything" — there is no everything.
+   */
+  scrollPasses?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * Consent buttons, in the order worth trying.
+ *
+ * The named ones are the two platforms behind a large share of the web's
+ * banners; the rest are generic accept-shaped buttons. Accepting is the choice
+ * that reveals content — and it is a choice, made once, here, rather than
+ * silently in five places.
+ */
+const CONSENT_SELECTORS = [
+  '#onetrust-accept-btn-handler',
+  '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+  '[aria-label="Accept all"]',
+  'button[id*="accept" i]:visible',
+  'button:has-text("Accept all")',
+  'button:has-text("I agree")',
+];
+
+/**
+ * How long to wait for a click, once a button is known to be there.
+ *
+ * Note what this is *not*: a per-selector wait. Waiting 1.5s on each of six
+ * selectors added nine seconds to every page that had no banner at all —
+ * which is most pages, and which showed up as the concurrency test timing out
+ * rather than as anything resembling a consent bug.
+ */
+const CONSENT_CLICK_TIMEOUT_MS = 1_000;
 
 export class BrowserStrategy implements FetchStrategy {
   readonly name = 'browser';
@@ -46,10 +93,12 @@ export class BrowserStrategy implements FetchStrategy {
   constructor(private readonly defaults: BrowserFetchOptions = {}) {}
 
   async fetch(url: string, options: BrowserFetchOptions = {}): Promise<HtmlDocument> {
-    const { timeoutMs = DEFAULT_TIMEOUT_MS, waitUntil = 'networkidle' } = {
-      ...this.defaults,
-      ...options,
-    };
+    const {
+      timeoutMs = DEFAULT_TIMEOUT_MS,
+      waitUntil = 'networkidle',
+      dismissConsent = true,
+      scrollPasses = 0,
+    } = { ...this.defaults, ...options };
 
     const browser = await this.#launch();
 
@@ -58,8 +107,13 @@ export class BrowserStrategy implements FetchStrategy {
     const context: BrowserContext = await browser.newContext({ userAgent: USER_AGENT });
     const page = await context.newPage();
 
+    // Closing the context is how a navigation gets cancelled: Playwright has no
+    // abort on goto(), so the page has to go away underneath it.
+    const abort = () => void context.close().catch(() => {});
+    options.signal?.addEventListener('abort', abort, { once: true });
+
     try {
-      const response = await page.goto(url, { waitUntil, timeout: timeoutMs });
+      const response = await navigate(page, url, waitUntil, timeoutMs);
       if (!response) throw new NetworkError(url, new Error('navigation produced no response'));
 
       const status = response.status();
@@ -69,6 +123,9 @@ export class BrowserStrategy implements FetchStrategy {
       if (!/^(?:text\/html|application\/xhtml\+xml)/i.test(contentType.trim())) {
         throw new UnsupportedContentTypeError(url, contentType);
       }
+
+      if (dismissConsent) await dismissConsentBanner(page);
+      if (scrollPasses > 0) await scrollThrough(page, scrollPasses);
 
       return {
         url,
@@ -83,7 +140,8 @@ export class BrowserStrategy implements FetchStrategy {
     } catch (error) {
       throw translate(error, url, timeoutMs);
     } finally {
-      await context.close();
+      options.signal?.removeEventListener('abort', abort);
+      await context.close().catch(() => {});
     }
   }
 
@@ -97,6 +155,77 @@ export class BrowserStrategy implements FetchStrategy {
     const browser = this.#browser;
     this.#browser = null;
     if (browser) await (await browser).close();
+  }
+}
+
+/**
+ * Navigate, with a fallback for pages that never go quiet.
+ *
+ * `networkidle` is the only wait that reliably sees a rendered SPA, but a page
+ * that polls — a chat widget, an analytics heartbeat, a live ticker — never
+ * reaches it, and waiting for something that will not happen is not a reason
+ * to return nothing. On that timeout we settle for `domcontentloaded` and take
+ * whatever has rendered, which is usually the whole page.
+ *
+ * A timeout with no response at all is still a timeout, and still throws.
+ */
+async function navigate(
+  page: Page,
+  url: string,
+  waitUntil: 'domcontentloaded' | 'load' | 'networkidle',
+  timeoutMs: number,
+): Promise<Response_ | null> {
+  try {
+    return await page.goto(url, { waitUntil, timeout: timeoutMs });
+  } catch (error) {
+    if (waitUntil !== 'networkidle' || !(error instanceof Error) || error.name !== 'TimeoutError') {
+      throw error;
+    }
+    // Already navigated; this resolves against the load that did happen.
+    return page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+  }
+}
+
+/**
+ * Best effort, and cheap when there is nothing to do — which is the common case.
+ *
+ * `isVisible()` answers from the current DOM without waiting, so a page with no
+ * banner costs six near-instant checks rather than six timeouts.
+ */
+async function dismissConsentBanner(page: Page): Promise<void> {
+  for (const selector of CONSENT_SELECTORS) {
+    try {
+      const button = page.locator(selector).first();
+      if (!(await button.isVisible())) continue;
+
+      await button.click({ timeout: CONSENT_CLICK_TIMEOUT_MS });
+      // One banner, one click. Anything still overlaying is not a cookie notice.
+      return;
+    } catch {
+      continue;
+    }
+  }
+}
+
+/**
+ * Scroll to the bottom `passes` times, giving the page a moment to append.
+ *
+ * Stops early when the height stops growing — a finite page is done, and there
+ * is no point paying for the remaining passes.
+ */
+async function scrollThrough(page: Page, passes: number): Promise<void> {
+  let previousHeight = 0;
+
+  for (let pass = 0; pass < passes; pass += 1) {
+    const height = await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+      return document.body.scrollHeight;
+    });
+
+    if (height === previousHeight) return;
+    previousHeight = height;
+
+    await page.waitForTimeout(500);
   }
 }
 
