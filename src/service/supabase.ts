@@ -1,6 +1,20 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
+ * supabase-js builds a realtime client eagerly, and that constructor throws
+ * without a global WebSocket. Node has had one since 22; this project runs on
+ * 20, so it is supplied here.
+ *
+ * Nothing in this service uses realtime — the shim exists purely so the
+ * constructor completes. Deleting it is part of the Node 22 upgrade, which
+ * Supabase is already warning about and which also unpins better-sqlite3.
+ */
+if (typeof globalThis.WebSocket === 'undefined') {
+  const { WebSocket } = await import('ws');
+  (globalThis as { WebSocket?: unknown }).WebSocket = WebSocket;
+}
+
+/**
  * The service's connection to Supabase.
  *
  * Created with the **service role** key, which bypasses row-level security.
