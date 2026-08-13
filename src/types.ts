@@ -47,6 +47,11 @@ export const ImageSchema = z.object({
   alt: z.string(),
 });
 
+export const WallSchema = z.object({
+  kind: z.enum(['login', 'captcha', 'consent']),
+  reason: z.string(),
+});
+
 /** The final output of a scrape. This is what the CLI prints as JSON. */
 export const ScrapedDocumentSchema = z.object({
   url: z.string().url(),
@@ -57,6 +62,12 @@ export const ScrapedDocumentSchema = z.object({
   markdown: z.string(),
   links: z.array(LinkSchema),
   images: z.array(ImageSchema),
+  /**
+   * Set when the page succeeded but isn't the page you wanted — a login wall,
+   * a bot check, a consent screen. Null on an ordinary page. Phase 4 must
+   * refuse to build a FormSpec from a document where this is set.
+   */
+  wall: WallSchema.nullable(),
 });
 
 export type Link = z.infer<typeof LinkSchema>;

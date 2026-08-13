@@ -52,5 +52,14 @@
     "contentType": "text/html;charset=UTF-8",
     "fetchedAt": "2026-08-13T16:28:04.510Z",
     "bytes": 1418953
+  },
+  {
+    "name": "thin-profile",
+    "url": "https://x.com/dan_abramov",
+    "finalUrl": "https://x.com/dan_abramov",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-13T18:09:03.544Z",
+    "bytes": 57333
   }
 ]

@@ -120,6 +120,11 @@ export async function run(argv: string[], streams: CliStreams = processStreams):
       browser,
       log: verbose ? (message) => streams.err(`· ${message}\n`) : () => {},
     });
+    // A wall is not an error — the content is real, it is just the wrong
+    // content. Warn unconditionally (not only under --verbose), because
+    // silently handing someone a login page is how they act on it.
+    if (doc.wall) streams.err(`warning: ${doc.wall.kind} wall — ${doc.wall.reason}\n`);
+
     streams.out(format === 'json' ? JSON.stringify(doc, null, 2) + '\n' : doc.markdown + '\n');
     return EXIT.ok;
   } catch (error) {

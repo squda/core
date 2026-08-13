@@ -3,6 +3,7 @@ import { extractContent } from './extract.js';
 import { toMarkdown } from './markdown.js';
 import { normaliseUrl } from './url.js';
 import { judge } from './select.js';
+import { detectWall } from './wall.js';
 import type { FetchStrategy } from './strategy.js';
 import { ScrapedDocumentSchema, type HtmlDocument, type ScrapedDocument } from './types.js';
 
@@ -16,6 +17,11 @@ import { ScrapedDocumentSchema, type HtmlDocument, type ScrapedDocument } from '
 export function scrapeHtml(doc: HtmlDocument): ScrapedDocument {
   const extracted = extractContent(doc);
   const converted = toMarkdown(extracted.html, doc.finalUrl);
+  const wall = detectWall({
+    title: extracted.title,
+    markdown: converted.markdown,
+    links: converted.links,
+  });
 
   // Parse, don't validate: this is the boundary where our data becomes trusted.
   return ScrapedDocumentSchema.parse({
@@ -27,6 +33,7 @@ export function scrapeHtml(doc: HtmlDocument): ScrapedDocument {
     markdown: converted.markdown,
     links: converted.links,
     images: converted.images,
+    wall,
   });
 }
 
