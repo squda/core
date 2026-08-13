@@ -1,7 +1,8 @@
-import { fetchPage } from './fetch.js';
+import { HttpStrategy } from './http-strategy.js';
 import { extractContent } from './extract.js';
 import { toMarkdown } from './markdown.js';
 import { normaliseUrl } from './url.js';
+import type { FetchStrategy } from './strategy.js';
 import { ScrapedDocumentSchema, type HtmlDocument, type ScrapedDocument } from './types.js';
 
 /**
@@ -27,8 +28,17 @@ export function scrapeHtml(doc: HtmlDocument): ScrapedDocument {
   });
 }
 
-export async function scrape(rawUrl: string): Promise<ScrapedDocument> {
+/**
+ * The one strategy Phase 1 had. Callers that don't care get it for free;
+ * Phase 2's selector will pass something else without this file changing.
+ */
+const defaultStrategy = new HttpStrategy();
+
+export async function scrape(
+  rawUrl: string,
+  strategy: FetchStrategy = defaultStrategy,
+): Promise<ScrapedDocument> {
   const url = normaliseUrl(rawUrl);
-  const doc = await fetchPage(url);
+  const doc = await strategy.fetch(url);
   return scrapeHtml(doc);
 }

@@ -1,4 +1,5 @@
 import type { HtmlDocument } from './types.js';
+import type { FetchOptions } from './strategy.js';
 
 /**
  * Phase 1, step 2 — HTTP GET a page.
@@ -82,9 +83,7 @@ function isHtml(contentType: string): boolean {
   return HTML_TYPES.includes(essence);
 }
 
-export interface FetchOptions {
-  timeoutMs?: number;
-}
+export type { FetchOptions };
 
 /**
  * GET a page and return it unparsed.
