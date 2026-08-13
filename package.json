@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "scrape": "tsx src/cli.ts",
+    "serve": "tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "vitest run --config vitest.browser.config.ts",
@@ -13,8 +14,10 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.0",
     "@mozilla/readability": "^0.5.0",
     "cheerio": "^1.0.0",
+    "hono": "^4.13.2",
     "jsdom": "^24.1.0",
     "turndown": "^7.2.0",
     "zod": "^3.23.8"
