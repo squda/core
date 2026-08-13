@@ -24,97 +24,97 @@ function makeCache(ttlMs = 60_000): SqliteCache {
 }
 
 afterEach(() => {
-  while (caches.length) caches.pop()?.close();
+  while (caches.length) void caches.pop()?.close();
   clock = Date.parse('2026-08-14T12:00:00Z');
 });
 
 describe('storing and reading', () => {
-  it('returns nothing for a url it has never seen', () => {
-    expect(makeCache().get(URL_, 'auto')).toBeNull();
+  it('returns nothing for a url it has never seen', async () => {
+    expect(await makeCache().get(URL_, 'auto')).toBeNull();
   });
 
-  it('round-trips a document, dates included', () => {
+  it('round-trips a document, dates included', async () => {
     const cache = makeCache();
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
 
-    const found = cache.get(URL_, 'auto');
+    const found = await cache.get(URL_, 'auto');
 
     expect(found).toEqual(DOCUMENT);
     expect(found?.fetchedAt).toBeInstanceOf(Date);
     expect(found?.markdown).toBe(DOCUMENT.markdown);
   });
 
-  it('overwrites rather than duplicating on a second write', () => {
+  it('overwrites rather than duplicating on a second write', async () => {
     const cache = makeCache();
-    cache.set(URL_, 'auto', DOCUMENT);
-    cache.set(URL_, 'auto', { ...DOCUMENT, title: 'Updated' });
+    await cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', { ...DOCUMENT, title: 'Updated' });
 
     expect(cache.size()).toBe(1);
-    expect(cache.get(URL_, 'auto')?.title).toBe('Updated');
+    expect((await cache.get(URL_, 'auto'))?.title).toBe('Updated');
   });
 });
 
 describe('the key', () => {
   // The Phase 1 decision paying off: one page, one entry, whichever link
   // someone happened to follow.
-  it('treats urls that normalise the same as one entry', () => {
+  it('treats urls that normalise the same as one entry', async () => {
     const cache = makeCache();
-    cache.set(`${URL_}?utm_source=twitter`, 'auto', DOCUMENT);
+    await cache.set(`${URL_}?utm_source=twitter`, 'auto', DOCUMENT);
 
-    expect(cache.get(`${URL_}?utm_source=rss`, 'auto')).not.toBeNull();
-    expect(cache.get(`${URL_}#section`, 'auto')).not.toBeNull();
+    expect(await cache.get(`${URL_}?utm_source=rss`, 'auto')).not.toBeNull();
+    expect(await cache.get(`${URL_}#section`, 'auto')).not.toBeNull();
     expect(cache.size()).toBe(1);
   });
 
-  it('keeps different urls apart', () => {
+  it('keeps different urls apart', async () => {
     const cache = makeCache();
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
 
-    expect(cache.get('https://overreacted.io/something-else/', 'auto')).toBeNull();
+    expect(await cache.get('https://overreacted.io/something-else/', 'auto')).toBeNull();
   });
 
   // browser=never on an SPA yields an empty shell. Serving an auto-fetched
   // document to that caller would hand back what they asked not to get.
-  it('keeps fetch modes apart', () => {
+  it('keeps fetch modes apart', async () => {
     const cache = makeCache();
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
 
-    expect(cache.get(URL_, 'never')).toBeNull();
-    expect(cache.get(URL_, 'always')).toBeNull();
-    expect(cache.get(URL_, 'auto')).not.toBeNull();
+    expect(await cache.get(URL_, 'never')).toBeNull();
+    expect(await cache.get(URL_, 'always')).toBeNull();
+    expect(await cache.get(URL_, 'auto')).not.toBeNull();
   });
 
-  it('refuses a url it cannot normalise, rather than storing junk', () => {
-    expect(() => makeCache().get('javascript:alert(1)', 'auto')).toThrow();
+  it('refuses a url it cannot normalise, rather than storing junk', async () => {
+    await expect(makeCache().get('javascript:alert(1)', 'auto')).rejects.toThrow();
   });
 });
 
 describe('expiry', () => {
-  it('stops serving an entry once its ttl has passed', () => {
+  it('stops serving an entry once its ttl has passed', async () => {
     const cache = makeCache(60_000);
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
 
     clock += 59_000;
-    expect(cache.get(URL_, 'auto')).not.toBeNull();
+    expect(await cache.get(URL_, 'auto')).not.toBeNull();
 
     clock += 2_000;
-    expect(cache.get(URL_, 'auto')).toBeNull();
+    expect(await cache.get(URL_, 'auto')).toBeNull();
   });
 
-  it('refreshes the ttl when a page is stored again', () => {
+  it('refreshes the ttl when a page is stored again', async () => {
     const cache = makeCache(60_000);
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
 
     clock += 50_000;
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
     clock += 50_000;
 
-    expect(cache.get(URL_, 'auto')).not.toBeNull();
+    expect(await cache.get(URL_, 'auto')).not.toBeNull();
   });
 
-  it('purges expired rows on request', () => {
+  it('purges expired rows on request', async () => {
     const cache = makeCache(1_000);
-    cache.set(URL_, 'auto', DOCUMENT);
+    await cache.set(URL_, 'auto', DOCUMENT);
     clock += 2_000;
 
     expect(cache.purge()).toBe(1);
@@ -132,14 +132,14 @@ describe('when the stored shape no longer matches', () => {
    * Uses a file database so a second connection can write the stale row, which
    * an in-memory one can't do.
    */
-  it('treats a row from an older schema as a miss and drops it', () => {
+  it('treats a row from an older schema as a miss and drops it', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'scrape-cache-'));
     const path = join(directory, 'cache.db');
 
     const cache = new SqliteCache(path, { now });
     caches.push(cache);
-    cache.set(URL_, 'auto', DOCUMENT);
-    expect(cache.get(URL_, 'auto')).not.toBeNull();
+    await cache.set(URL_, 'auto', DOCUMENT);
+    expect(await cache.get(URL_, 'auto')).not.toBeNull();
 
     // Yesterday's document: written before `structured` and `feeds` existed.
     const stale = { ...DOCUMENT } as Record<string, unknown>;
@@ -150,10 +150,10 @@ describe('when the stored shape no longer matches', () => {
     writer.prepare('update pages set document = ?').run(JSON.stringify(stale));
     writer.close();
 
-    expect(cache.get(URL_, 'auto')).toBeNull();
+    expect(await cache.get(URL_, 'auto')).toBeNull();
     expect(cache.size()).toBe(0);
 
-    cache.close();
+    await cache.close();
     caches.pop();
     rmSync(directory, { recursive: true, force: true });
   });

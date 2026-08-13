@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import type { BrowserPool } from '../fetching/pool.js';
 import type { ScrapeCache } from './cache.js';
+import { authenticate, type Caller } from './auth.js';
+import type { SupabaseClient } from './supabase.js';
 import { z } from 'zod';
 import { BlockedAddressError, FetchError, HttpStatusError } from '../core/errors.js';
 import { Logger } from '../support/log.js';
@@ -34,7 +36,7 @@ import type { ScrapedDocument } from '../core/types.js';
  */
 
 /** What a request carries beyond its body: the logger stamped with its id. */
-type AppEnv = { Variables: { log: Logger } };
+type AppEnv = { Variables: { log: Logger; caller?: Caller } };
 
 export const ScrapeRequestSchema = z.object({
   url: z.string().min(1, 'url is required'),
@@ -78,6 +80,13 @@ export interface AppOptions {
   maxQueued?: number;
   /** Where structured logs go. Silent by default so tests don't shout. */
   logger?: Logger;
+  /**
+   * Verify Supabase tokens on the scrape endpoints. Without a client there is
+   * no auth at all — which is the right default for a local CLI-shaped run,
+   * and the wrong one for anything reachable, so server.ts insists on it.
+   */
+  supabase?: SupabaseClient;
+  requireAuth?: boolean;
 }
 
 export function createApp({
@@ -87,6 +96,8 @@ export function createApp({
   jobConcurrency = 4,
   maxQueued = 100,
   logger = new Logger({}, { write: () => {} }),
+  supabase,
+  requireAuth = false,
 }: AppOptions = {}): Hono<AppEnv> {
   /** The one path to a document. Both endpoints go through it. */
   async function scrapeOnce(
@@ -95,7 +106,7 @@ export function createApp({
     log: Logger,
     signal?: AbortSignal,
   ): Promise<{ document: ScrapedDocument; cached: boolean }> {
-    const cached = cache?.get(url, browser) ?? null;
+    const cached = (await cache?.get(url, browser)) ?? null;
     if (cached) {
       log.info('cache hit', { url, browser });
       return { document: cached, cached: true };
@@ -108,7 +119,7 @@ export function createApp({
       // scrape()'s own narration, stamped with this request's id.
       log: (message) => log.debug(message, { url }),
     });
-    cache?.set(url, browser, document);
+    await cache?.set(url, browser, document);
     log.info('scraped', {
       url,
       browser,
@@ -150,8 +161,25 @@ export function createApp({
 
     const started = Date.now();
     await next();
-    log.info('request', { status: context.res.status, ms: Date.now() - started });
+    log.info('request', {
+      status: context.res.status,
+      ms: Date.now() - started,
+      ...(context.get('caller') ? { callerId: context.get('caller')?.id } : {}),
+    });
   });
+
+  // Auth guards the endpoints that cost something. /health stays open: a load
+  // balancer has no token, and the answer reveals nothing.
+  if (supabase) {
+    const guard = authenticate({
+      client: supabase,
+      required: requireAuth,
+      onError: (error) => logger.error('auth check failed', { error: String(error) }),
+    });
+    app.use('/scrape', guard);
+    app.use('/jobs', guard);
+    app.use('/jobs/*', guard);
+  }
 
   app.get('/health', (context) =>
     context.json({ ok: true, browser: pool?.stats() ?? null, jobs: queue.stats() }),

@@ -10,10 +10,15 @@ import { normaliseUrl } from '../core/url.js';
  * bought you because you will have done it without one.
  */
 
+/**
+ * Async because the store behind it may be over a network. SQLite answers
+ * immediately and still returns a promise: one interface, so swapping the
+ * store is a constructor change rather than an edit to every caller.
+ */
 export interface ScrapeCache {
-  get(url: string, mode: string): ScrapedDocument | null;
-  set(url: string, mode: string, document: ScrapedDocument): void;
-  close(): void;
+  get(url: string, mode: string): Promise<ScrapedDocument | null>;
+  set(url: string, mode: string, document: ScrapedDocument): Promise<void>;
+  close(): Promise<void>;
 }
 
 const SCHEMA = `
@@ -53,7 +58,7 @@ export class SqliteCache implements ScrapeCache {
     this.#db.exec(SCHEMA);
   }
 
-  get(url: string, mode: string): ScrapedDocument | null {
+  async get(url: string, mode: string): Promise<ScrapedDocument | null> {
     const row = this.#db
       .prepare<[string, number], { document: string }>(
         'select document from pages where key = ? and expires_at > ?',
@@ -74,7 +79,7 @@ export class SqliteCache implements ScrapeCache {
     return parsed.data;
   }
 
-  set(url: string, mode: string, document: ScrapedDocument): void {
+  async set(url: string, mode: string, document: ScrapedDocument): Promise<void> {
     const storedAt = this.#now();
 
     this.#db
@@ -105,7 +110,7 @@ export class SqliteCache implements ScrapeCache {
     return this.#db.prepare<[], { n: number }>('select count(*) as n from pages').get()?.n ?? 0;
   }
 
-  close(): void {
+  async close(): Promise<void> {
     this.#db.close();
   }
 
