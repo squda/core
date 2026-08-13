@@ -38,6 +38,26 @@ Logs and errors go to stderr, so `pnpm scrape <url> > page.md` gets clean Markdo
 Exit codes: `0` ok · `1` usage · `2` invalid url · `3` timeout · `4` network · `5` http error ·
 `6` not HTML · `70` unexpected.
 
+## As a service
+
+```console
+$ pnpm serve
+scrape service listening on http://localhost:3000 (cache: .cache/scrape.db)
+```
+
+| route           | what it does                                                         |
+| --------------- | -------------------------------------------------------------------- |
+| `POST /scrape`  | `{ url, browser? }` → the document now. Cached pages answer in ~2ms. |
+| `POST /jobs`    | same body → `202` + a job id, for pages that need a browser          |
+| `GET /jobs/:id` | `queued` / `running` / `done` / `failed`, with the document or error |
+| `GET /health`   | browser pool and job counts                                          |
+
+Responses carry `x-cache: hit|miss`. Env vars: `PORT`, `CACHE_PATH`, `BROWSER_CONCURRENCY`.
+
+Results are cached in SQLite for an hour, keyed on the normalised url plus fetch mode — so
+`?utm_source=twitter` and `?utm_source=rss` are one entry. One browser is shared across all
+requests behind a concurrency cap.
+
 ## How it fits together
 
 ```

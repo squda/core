@@ -1,19 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { extractContent } from '../src/extract.js';
-import type { HtmlDocument } from '../src/types.js';
 import { loadFixture } from './fixtures.js';
+import { htmlDocument } from './helpers.js';
 
-function page(bodyHtml: string, headHtml = ''): HtmlDocument {
-  return {
-    url: 'https://example.com/p',
-    fetchedWith: 'http',
-    finalUrl: 'https://example.com/p',
-    html: `<!doctype html><html><head>${headHtml}</head><body>${bodyHtml}</body></html>`,
-    contentType: 'text/html',
-    status: 200,
-    fetchedAt: new Date('2026-01-01T00:00:00Z'),
-  };
-}
+/** A page with separate head and body, which only these tests need. */
+const page = (bodyHtml: string, headHtml = '') =>
+  htmlDocument(`<!doctype html><html><head>${headHtml}</head><body>${bodyHtml}</body></html>`);
 
 /** Text of the extracted HTML, tags removed — what the reader ends up with. */
 function textOf(html: string): string {

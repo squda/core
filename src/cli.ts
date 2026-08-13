@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { FetchError, HttpStatusError, type FetchErrorKind } from './fetch.js';
-import { InvalidUrlError } from './url.js';
+import { FetchError, HttpStatusError, type FetchErrorKind } from './errors.js';
+import { InvalidUrlError } from './errors.js';
 import { scrape } from './scrape.js';
 
 /**

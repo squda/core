@@ -1,23 +1,11 @@
+import { InvalidUrlError } from './errors.js';
+
 /**
  * Phase 1, step 3 — validate and normalise input URLs.
  *
  * Normalisation matters more than it looks: in Phase 3 the normalised URL
  * becomes the cache key, so "same page" has to mean the same string here.
  */
-
-/**
- * Thrown when a string isn't a URL we're willing to fetch. Phase 2 step 5
- * builds a real error taxonomy; this is the first member of it.
- */
-export class InvalidUrlError extends Error {
-  constructor(
-    readonly input: string,
-    reason: string,
-  ) {
-    super(`invalid url ${JSON.stringify(input)}: ${reason}`);
-    this.name = 'InvalidUrlError';
-  }
-}
 
 /**
  * Anything that looks like `scheme:` at the start.

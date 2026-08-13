@@ -1,5 +1,6 @@
 import type * as cheerio from 'cheerio';
 import { toAbsoluteUrl } from './url.js';
+import { collapseOrNull as collapse } from './text.js';
 
 /**
  * The surfaces a site publishes *on purpose*.
@@ -120,11 +121,6 @@ function nameOf(value: unknown): string | null {
 
 function text(value: unknown): string | null {
   return typeof value === 'string' ? collapse(value) : null;
-}
-
-function collapse(value: string): string | null {
-  const cleaned = value.replace(/\s+/g, ' ').trim();
-  return cleaned === '' ? null : cleaned;
 }
 
 function isObject(value: unknown): value is JsonObject {

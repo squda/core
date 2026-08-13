@@ -1,25 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { judge } from '../src/select.js';
 import { scrapeHtml } from '../src/scrape.js';
-import type { HtmlDocument } from '../src/types.js';
+import { htmlDocument } from './helpers.js';
 import { loadFixture } from './fixtures.js';
+
+/** A fetched page, optionally one the browser produced. */
+const page = (html: string, fetchedWith: 'http' | 'browser' = 'http') =>
+  htmlDocument(html, { fetchedWith });
 
 /** Judge a fixture exactly as scrape() does: fetch result plus what we got out. */
 function judgeFixture(name: string) {
   const doc = loadFixture(name);
   return judge(doc, scrapeHtml(doc));
-}
-
-function page(html: string, fetchedWith: 'http' | 'browser' = 'http'): HtmlDocument {
-  return {
-    url: 'https://example.com/',
-    fetchedWith,
-    finalUrl: 'https://example.com/',
-    html,
-    contentType: 'text/html',
-    status: 200,
-    fetchedAt: new Date('2026-01-01T00:00:00Z'),
-  };
 }
 
 describe('against the real fixtures', () => {

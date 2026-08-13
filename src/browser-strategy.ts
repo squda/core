@@ -4,7 +4,8 @@ import {
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-} from './fetch.js';
+} from './errors.js';
+import { USER_AGENT } from './user-agent.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
 import type { HtmlDocument } from './types.js';
 
@@ -30,11 +31,6 @@ export interface BrowserFetchOptions extends FetchOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-
-/** Matches fetch.ts, so a site sees the same client either way. */
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
 export class BrowserStrategy implements FetchStrategy {
   readonly name = 'browser';

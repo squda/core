@@ -1,77 +1,17 @@
+import {
+  FetchTimeoutError,
+  HttpStatusError,
+  NetworkError,
+  UnsupportedContentTypeError,
+} from './errors.js';
+import { USER_AGENT } from './user-agent.js';
 import type { HtmlDocument } from './types.js';
 import type { FetchOptions } from './strategy.js';
 
 /**
- * Phase 1, step 2 — HTTP GET a page.
- *
- * The error classes below are the start of the taxonomy Phase 2 step 5 fills
- * out. They share a `kind` so a caller can branch on the discriminant rather
- * than on a chain of `instanceof` checks — the browser strategy will want to
- * retry on some kinds and give up on others.
+ * Phase 1, step 2 — HTTP GET a page. The errors it raises live in errors.ts,
+ * shared with the browser path.
  */
-
-export type FetchErrorKind = 'timeout' | 'network' | 'http-status' | 'content-type';
-
-export abstract class FetchError extends Error {
-  abstract readonly kind: FetchErrorKind;
-
-  constructor(
-    readonly url: string,
-    message: string,
-    options?: { cause?: unknown },
-  ) {
-    super(message, options);
-    this.name = new.target.name;
-  }
-}
-
-export class FetchTimeoutError extends FetchError {
-  readonly kind = 'timeout';
-  constructor(
-    url: string,
-    readonly timeoutMs: number,
-  ) {
-    super(url, `timed out after ${timeoutMs}ms fetching ${url}`);
-  }
-}
-
-/** DNS failure, connection refused, TLS error — the request never completed. */
-export class NetworkError extends FetchError {
-  readonly kind = 'network';
-  constructor(url: string, cause: unknown) {
-    super(url, `network failure fetching ${url}`, { cause });
-  }
-}
-
-export class HttpStatusError extends FetchError {
-  readonly kind = 'http-status';
-  constructor(
-    url: string,
-    readonly status: number,
-  ) {
-    super(url, `got ${status} fetching ${url}`);
-  }
-}
-
-export class UnsupportedContentTypeError extends FetchError {
-  readonly kind = 'content-type';
-  constructor(
-    url: string,
-    readonly contentType: string,
-  ) {
-    super(url, `expected HTML, got ${contentType || 'no content-type'} at ${url}`);
-  }
-}
-
-/**
- * A real browser's UA. The default Node one (`node`) is blocked or served a
- * degraded page by a lot of sites — the plan calls this out in step 2, and it
- * is the difference between a fixture with content and a fixture with a
- * bot-check page in it.
- */
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 

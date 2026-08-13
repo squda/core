@@ -4,8 +4,8 @@ import {
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-  fetchPage,
-} from '../src/fetch.js';
+} from '../src/errors.js';
+import { fetchPage } from '../src/fetch.js';
 
 /**
  * No network here either. We stub global fetch and assert on what fetchPage

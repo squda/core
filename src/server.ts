@@ -5,10 +5,10 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { BrowserPool } from './browser-pool.js';
 import { SqliteCache, type ScrapeCache } from './cache.js';
-import { FetchError, HttpStatusError } from './fetch.js';
+import { FetchError, HttpStatusError } from './errors.js';
 import { JobQueue, type JobError } from './queue.js';
 import { scrape as defaultScrape } from './scrape.js';
-import { InvalidUrlError } from './url.js';
+import { InvalidUrlError } from './errors.js';
 import type { ScrapedDocument } from './types.js';
 
 /**

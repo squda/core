@@ -7,7 +7,7 @@ import {
   HttpStatusError,
   UnsupportedContentTypeError,
   NetworkError,
-} from '../src/fetch.js';
+} from '../src/errors.js';
 import { scrapeHtml } from '../src/scrape.js';
 import { describeFetchStrategyContract } from './strategy-contract.js';
 import { startTestServer, type TestServer } from './test-server.js';

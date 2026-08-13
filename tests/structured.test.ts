@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { extractFeeds, extractStructured } from '../src/structured.js';
 import { extractContent } from '../src/extract.js';
 import { scrapeHtml } from '../src/scrape.js';
-import type { HtmlDocument } from '../src/types.js';
+import { htmlDocument as page } from './helpers.js';
 import { loadFixture } from './fixtures.js';
 
 function ldPage(...blocks: unknown[]): cheerio.CheerioAPI {
@@ -15,18 +15,6 @@ function ldPage(...blocks: unknown[]): cheerio.CheerioAPI {
     )
     .join('');
   return cheerio.load(`<html><head>${scripts}</head><body></body></html>`);
-}
-
-function page(html: string): HtmlDocument {
-  return {
-    url: 'https://example.com/p',
-    fetchedWith: 'http',
-    finalUrl: 'https://example.com/p',
-    html,
-    contentType: 'text/html',
-    status: 200,
-    fetchedAt: new Date('2026-01-01T00:00:00Z'),
-  };
 }
 
 describe('json-ld', () => {

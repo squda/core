@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
 import { toAbsoluteUrl } from './url.js';
+import { collapseWhitespace } from './text.js';
 import type { Image, Link } from './types.js';
 
 export interface ConvertedContent {
@@ -147,8 +148,4 @@ function dedupe<T>(items: T[], key: (item: T) => string): T[] {
     seen.add(identity);
     return true;
   });
-}
-
-function collapseWhitespace(value: string | undefined): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim();
 }

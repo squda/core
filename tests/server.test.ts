@@ -7,7 +7,7 @@ import {
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-} from '../src/fetch.js';
+} from '../src/errors.js';
 import { loadFixture } from './fixtures.js';
 import { scrapeHtml } from '../src/scrape.js';
 

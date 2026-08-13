@@ -2,7 +2,9 @@
 
 **Stack:** TypeScript / Node throughout (pnpm, `tsx`, Vitest, Zod).
 **Fill surface:** headless browser automation (Playwright).
-**Purpose:** learning project. Every phase is chosen partly for what it forces you to confront.
+**Purpose:** a production system, built for learning. Every phase is chosen partly for what it
+forces you to confront — but the target is something deployable, not a demo, which is why Phase 9
+is deployment rather than a footnote.
 **Two features, not one.** Scraping is a product in its own right — URL in, clean Markdown or JSON
 out — and form filling is the second thing built on top of it. Part A ships something usable on its
 own; Part B is not the only reason it exists.
@@ -63,7 +65,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 > **Added afterwards (2026-08-13):** read the surfaces a site publishes deliberately — JSON-LD
 > (`structured`) and RSS/Atom links (`feeds`) — before trusting anything extraction inferred. They
 > are never blocked, often cleaner, and JSON-LD's `articleBody` is a better fallback than a `<body>`
-> dump when Readability finds nothing. `sitemap.xml` is a _crawl_ surface, so it sits in Phase 9.
+> dump when Readability finds nothing. `sitemap.xml` is a _crawl_ surface, so it sits in Phase 10.
 
 **Order of work:** read `src/types.ts` first — it's the contract everything else in this phase plugs into, and it's already written. Then `normaliseUrl` (its tests are already red and waiting), then `fetchPage`, then extract → markdown. Save one fixture early and drive `scrapeHtml` straight off the file, so you aren't re-fetching the network every time you change a line.
 
@@ -121,8 +123,20 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 4. A job queue for slow browser scrapes: `POST /scrape` returns a job id immediately, `GET /jobs/:id` returns status and result. An in-memory queue is fine at this stage.
 5. Concurrency limit on browser scrapes so ten requests don't launch ten Chromiums.
 6. Structured logging with a request id threaded through.
+7. **Make the queue safe under real load** (added 2026-08-14, once "production" became the target):
+   - **Deduplicate in-flight work.** The same url submitted five times must be one scrape with
+     five subscribers, not five browser fetches. The cache only helps *after* the first finishes.
+   - **Bound the intake.** The limiter caps what runs, not what can be submitted; ten thousand
+     POSTs is ten thousand jobs in memory. Reject past a queue depth with 429 and `Retry-After`.
+   - **Per-job timeout and cancellation**, so one hung page can't hold a slot for its full 30s.
+   - **Tell "expired" apart from "never existed"** — both are 404 today, which is a lie in one
+     of the two cases. 410 Gone for a job we retired.
 
 **Done when:** you can `curl` a URL and get Markdown back, slow pages go through the job flow, and the second request for the same URL is served from cache.
+
+> **Progress.** Steps 1–5 done 2026-08-14: `POST /scrape` (sync), `POST /jobs` + `GET /jobs/:id`
+> (async), SQLite cache keyed on the normalised url, one shared browser behind a concurrency cap,
+> and `GET /health` reporting both. Steps 6 and 7 remain.
 
 **Order of work:** HTTP layer first, as thin as you can make it — if the core needs _any_ change to get a second adapter, that's the finding. Then the cache (synchronous, easy to test), then the job queue, then the concurrency limit. Four separately demoable steps; resist building them at once.
 
@@ -344,9 +358,65 @@ Integration bugs live in the gaps between modules, and working alone you built e
 
 ---
 
-## Phase 9 — Getting in when a site says no
+## Phase 9 — Ship it
 
-**Do not start this until Phase 8 ships.** It is listed because it is real work you intend to do,
+**This is a production system, not a demo.** Everything before this runs on your laptop; this
+phase is what stands between that and something other people depend on. Do it before Phase 10 —
+a scraper that is hard to deploy and hard to observe does not become easier once it is also
+fighting bot protection.
+
+**Goal:** the service runs somewhere that isn't your machine, survives a restart, and tells you
+what it is doing.
+
+**Steps**
+
+1. **Close the SSRF hole first.** This service fetches any url it is handed — which, deployed,
+   means anyone can point it at `http://169.254.169.254/` (cloud metadata, and therefore your
+   credentials), at `http://localhost:5432`, or at anything else inside your network. Before
+   fetching: resolve the host, reject private, loopback, link-local and multicast ranges, and
+   re-check *after every redirect*, because a public url can redirect to `127.0.0.1`. This is the
+   single most important item in the phase and the one most often missed.
+2. **Configuration by environment**, validated with Zod at boot, and a process that refuses to
+   start on a bad config rather than failing on the first request. `PORT`, `CACHE_PATH`,
+   `BROWSER_CONCURRENCY` already exist informally — give them a schema.
+3. **Containerise.** Playwright's own image, or install Chromium's system libraries yourself.
+   Run as a non-root user. This is where you find out how large a browser image really is.
+4. **Graceful shutdown.** Stop accepting, let in-flight jobs finish or fail cleanly, close the
+   browser pool and the database, then exit. The pool already closes on SIGINT/SIGTERM; the
+   server and jobs do not.
+5. **Decide what survives a restart.** In-memory jobs vanish today, and the SQLite cache is a
+   file on one machine's disk — both are fine on one box and wrong the moment there are two.
+   Either commit to a single instance and say so, or move jobs and cache to shared storage.
+6. **Observability.** Structured JSON logs with a request id (Phase 3 step 6), a `/metrics`
+   endpoint or equivalent, and the numbers that actually matter here: scrapes by strategy, cache
+   hit rate, queue depth, browser launches, p95 latency by path.
+7. **Limits and abuse.** Rate limit per caller, a maximum response size (a 1.4MB news page is
+   normal; a 500MB one is an attack), and a hard cap on how long any single request may take.
+8. **CI.** Run `pnpm test`, `typecheck`, `lint` on every push, and `test:browser` on a schedule —
+   it needs a browser image and takes ten times as long.
+
+**Done when:** someone else can deploy it from a clean checkout with documented env vars, kill it
+mid-scrape without corruption, and answer "what is it doing right now?" from logs and metrics.
+
+**Order of work:** SSRF guard first — it is a security bug in code that already exists, not a
+deployment task. Then config + graceful shutdown (both small, both change how everything starts
+and stops), then the container, then observability, then limits.
+
+**What you'll learn**
+
+- SSRF as a concrete thing you built by accident rather than an OWASP bullet point. Any service
+  that fetches a user-supplied url has this hole until it is explicitly closed.
+- The gap between "runs on my machine" and "runs": config, shutdown, restart, and what state
+  quietly assumed there was only ever one process.
+- Why in-memory anything is a scaling decision in disguise.
+- What to measure. Most services log volumes of text and still can't answer the one question
+  you have at 3am.
+
+---
+
+## Phase 10 — Getting in when a site says no
+
+**Do not start this until Phase 9 ships.** It is listed because it is real work you intend to do,
 not because it is next. Everything before it makes the product; this makes the product reach
 further, and it is the one phase whose results decay — the techniques below have a shelf life of
 months, so learning them early means learning them twice.
@@ -366,7 +436,7 @@ github/join all refuse, Amazon hangs):
 **Steps, cheapest first**
 
 1. **Exhaust the free surfaces first.** Official APIs, data dumps, `sitemap.xml`, RSS, JSON-LD.
-   Phase 1.5 already added the per-page half of this; the crawl half (sitemap → many URLs) belongs
+   Phase 1 already added the per-page half of this; the crawl half (sitemap → many URLs) belongs
    here. Most "blocked" problems are a wrong-source problem.
 2. **Swap the browser binary.** `chromium.launch()` in `browser-strategy.ts` is one line behind the
    `FetchStrategy` seam. Camoufox (patched Firefox, C++-level fingerprint control) and Patchright /
@@ -401,7 +471,7 @@ Rate limits and GDPR still apply on every rung.
 
 ## Deliberately not in this plan
 
-Note these down, resist them until Phase 8 ships: authentication and multi-user support, deployment/hosting, a browser extension, CAPTCHA handling, filling behind logins, resume/document parsing, a real job queue (BullMQ).
+Note these down, resist them until Phase 8 ships: authentication and multi-user support, a browser extension, CAPTCHA handling, filling behind logins, resume/document parsing, a real job queue (BullMQ).
 
 ~~rate-limit/proxy infrastructure~~ — moved _into_ the plan as **Phase 9**, after Phase 8 ships.
 

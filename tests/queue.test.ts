@@ -1,20 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { JobQueue } from '../src/queue.js';
+import { deferred } from './helpers.js';
 import { scrapeHtml } from '../src/scrape.js';
 import { loadFixture } from './fixtures.js';
 
 const DOCUMENT = scrapeHtml(loadFixture('blog-post'));
 const URL_ = 'https://overreacted.io/the-wet-codebase/';
-
-function deferred<T = void>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
 
 /** Waits for a job to leave the running states. */
 async function settle(queue: JobQueue, id: string) {
