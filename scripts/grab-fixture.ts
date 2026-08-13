@@ -6,7 +6,10 @@ import { normaliseUrl } from '../src/core/url.js';
 /**
  * Save a page into fixtures/ and record it in the manifest.
  *
- *     npx tsx scripts/grab-fixture.ts <url> <name>
+ *     npx tsx scripts/grab-fixture.ts <url> <name> [--browser]
+ *
+ * `--browser` renders the page first, which is the only way to capture a form
+ * that a framework builds at runtime — and Phase 4's targets include several.
  *
  * The one place in this repo that is *supposed* to touch the network. Tests
  * read what it writes; they never call it.
@@ -23,10 +26,14 @@ interface FixtureEntry {
   contentType: string;
   fetchedAt: string;
   bytes: number;
+  fetchedWith?: 'http' | 'browser';
 }
 
 async function main(): Promise<void> {
-  const { positionals } = parseArgs({ allowPositionals: true });
+  const { positionals, values } = parseArgs({
+    allowPositionals: true,
+    options: { browser: { type: 'boolean', default: false } },
+  });
   const [rawUrl, name] = positionals;
 
   if (!rawUrl || !name) {
@@ -37,7 +44,19 @@ async function main(): Promise<void> {
   }
 
   const url = normaliseUrl(rawUrl);
-  const doc = await fetchPage(url, { timeoutMs: 20_000 });
+
+  let doc;
+  if (values.browser) {
+    const { BrowserStrategy } = await import('../src/fetching/browser.js');
+    const strategy = new BrowserStrategy();
+    try {
+      doc = await strategy.fetch(url, { timeoutMs: 30_000 });
+    } finally {
+      await strategy.close();
+    }
+  } else {
+    doc = await fetchPage(url, { timeoutMs: 20_000 });
+  }
 
   await writeFile(new URL(`${name}.html`, fixturesDir), doc.html);
 
@@ -50,6 +69,7 @@ async function main(): Promise<void> {
     contentType: doc.contentType,
     fetchedAt: doc.fetchedAt.toISOString(),
     bytes: doc.html.length,
+    fetchedWith: doc.fetchedWith,
   };
 
   // Re-grabbing an existing fixture replaces its row rather than duplicating it.

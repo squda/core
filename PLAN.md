@@ -180,6 +180,12 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 4. Generate a **stable selector** per field. Prefer `#id`, then `[name=]`, then a scoped CSS path. Do _not_ use auto-generated class names — they change on every deploy.
 5. Add `GET /form-spec?url=` to the service.
 6. Build a fixture set of 8–10 real forms: a job application, a signup, a checkout, a government form, a multi-step wizard. Snapshot-test the FormSpec for each.
+   > **Targets chosen and captured 2026-08-14** (see fixtures/README.md): a real GitLab
+   > application on Greenhouse (22 inputs, 2 file uploads), demoqa's practice form (radios,
+   > checkboxes, date picker, multi-select — needs a browser), Wikipedia's signup, a checkout
+   > modal, a two-field login, and a login with **no labels at all**, which is where label
+   > resolution has to earn its place. Still missing: a multi-step wizard, and a real government
+   > form — gov.uk's flows need a session, so that one may have to be built locally.
 
 **Done when:** you can point it at a real signup form and get back a JSON list of fields with correct human-readable labels.
 

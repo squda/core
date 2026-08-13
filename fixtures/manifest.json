@@ -61,5 +61,65 @@
     "contentType": "text/html; charset=UTF-8",
     "fetchedAt": "2026-08-13T18:09:03.544Z",
     "bytes": 57333
+  },
+  {
+    "name": "form-practice",
+    "url": "https://demoqa.com/automation-practice-form",
+    "finalUrl": "https://demoqa.com/automation-practice-form",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-13T22:26:31.457Z",
+    "bytes": 43020,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "form-login-nolabels",
+    "url": "https://www.saucedemo.com/",
+    "finalUrl": "https://www.saucedemo.com/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-13T22:26:34.142Z",
+    "bytes": 2670,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "form-job-application",
+    "url": "https://job-boards.greenhouse.io/gitlab/jobs/8503792002",
+    "finalUrl": "https://job-boards.greenhouse.io/gitlab/jobs/8503792002",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-13T22:26:55.166Z",
+    "bytes": 91872,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-signup",
+    "url": "https://en.wikipedia.org/w/index.php?title=Special%3ACreateAccount",
+    "finalUrl": "https://auth.wikimedia.org/enwiki/wiki/Special:CreateAccount?useformat=desktop&usesul3=1&centralauthLoginToken=1e29e1525c0eba30fc50b7d255b9c9f6",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-13T22:26:57.915Z",
+    "bytes": 42902,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-checkout",
+    "url": "https://www.demoblaze.com/index.html",
+    "finalUrl": "https://www.demoblaze.com/index.html",
+    "status": 200,
+    "contentType": "text/html",
+    "fetchedAt": "2026-08-13T22:26:58.800Z",
+    "bytes": 17232,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-login-minimal",
+    "url": "https://the-internet.herokuapp.com/login",
+    "finalUrl": "https://the-internet.herokuapp.com/login",
+    "status": 200,
+    "contentType": "text/html;charset=utf-8",
+    "fetchedAt": "2026-08-13T22:27:01.230Z",
+    "bytes": 2376,
+    "fetchedWith": "http"
   }
 ]

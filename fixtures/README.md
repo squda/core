@@ -27,7 +27,11 @@ forget.
 
 ```
 npx tsx scripts/grab-fixture.ts https://example.com/post blog-post
+npx tsx scripts/grab-fixture.ts https://example.com/form new-form --browser
 ```
+
+`--browser` renders the page first, which is the only way to capture a form a framework
+builds at runtime.
 
 ...or by hand, if you'd rather:
 

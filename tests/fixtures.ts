@@ -16,6 +16,7 @@ interface FixtureEntry {
   contentType: string;
   fetchedAt: string;
   bytes: number;
+  fetchedWith?: 'http' | 'browser';
 }
 
 const manifestUrl = new URL('../fixtures/manifest.json', import.meta.url);
@@ -37,7 +38,7 @@ export function loadFixture(name: string): HtmlDocument {
 
   return {
     url: entry.url,
-    fetchedWith: 'http',
+    fetchedWith: entry.fetchedWith ?? 'http',
     finalUrl: entry.finalUrl,
     html,
     contentType: entry.contentType,
