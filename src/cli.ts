@@ -170,10 +170,19 @@ function adviceFor(error: FetchError): string {
   }
 }
 
+/**
+ * A 403 from a CDN is a target-selection signal, not a bug to fix.
+ *
+ * Tested, so the advice can be definite: forcing --browser=always through
+ * StackOverflow, github/join and weworkremotely still returns 403. Bot
+ * protection fingerprints the TLS handshake and the headless browser itself,
+ * so a retry costs 600ms and changes nothing. The useful move is a different
+ * source — an official API, a data dump, or a site that wants to be read.
+ */
 function adviceForStatus(status: number): string {
   if (status === 404) return 'no page at that url.';
   if (status === 401 || status === 403)
-    return 'the server refused us — it may want a real browser or a login.';
+    return 'blocked by bot protection. A browser retry does not help — look for an API, a data dump, or another source.';
   if (status === 429) return 'rate limited. Wait, then try again more slowly.';
   if (status >= 500) return "the server is having trouble — that one isn't ours.";
   return 'the server refused the request.';

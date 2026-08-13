@@ -127,7 +127,8 @@ describe('failure exit codes', () => {
 
     expect(code).toBe(5);
     expect(streams.stderr).toContain('got 403');
-    expect(streams.stderr).toContain('real browser');
+    expect(streams.stderr).toContain('bot protection');
+    expect(streams.stderr).toContain('does not help');
   });
 
   // Advice keyed to the kind alone told a 404 about 403s. The status matters.

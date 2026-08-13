@@ -50,18 +50,20 @@ Exit codes: `0` ok · `1` usage · `2` invalid url · `3` timeout · `4` network
 `scrape()` knows nothing about the CLI, and the CLI knows nothing about HTTP mechanics. The
 strategy is chosen by `select.ts`, a pure function over a fetch that already happened.
 
-| file                  | job                                                       |
-| --------------------- | --------------------------------------------------------- |
-| `url.ts`              | canonical URL for fetching and caching; link resolution   |
-| `fetch.ts`            | the HTTP GET, and the error taxonomy everything else uses |
-| `strategy.ts`         | the `FetchStrategy` interface                             |
-| `http-strategy.ts`    | `fetchPage` behind that interface                         |
-| `browser-strategy.ts` | Playwright behind the same interface                      |
-| `select.ts`           | "was that result empty enough to retry?"                  |
-| `extract.ts`          | strip the junk, find the article                          |
-| `markdown.ts`         | HTML → Markdown, every URL resolved absolute              |
-| `scrape.ts`           | composes them; validates with Zod                         |
-| `cli.ts`              | argv in, Markdown or JSON out, exit codes on failure      |
+| file                  | job                                                             |
+| --------------------- | --------------------------------------------------------------- |
+| `url.ts`              | canonical URL for fetching and caching; link resolution         |
+| `fetch.ts`            | the HTTP GET, and the error taxonomy everything else uses       |
+| `strategy.ts`         | the `FetchStrategy` interface                                   |
+| `http-strategy.ts`    | `fetchPage` behind that interface                               |
+| `browser-strategy.ts` | Playwright behind the same interface                            |
+| `select.ts`           | "was that result empty enough to retry?"                        |
+| `structured.ts`       | JSON-LD and RSS/Atom — the surfaces a site publishes on purpose |
+| `wall.ts`             | login walls, bot checks, consent screens — 200 OK, wrong page   |
+| `extract.ts`          | strip the junk, find the article                                |
+| `markdown.ts`         | HTML → Markdown, every URL resolved absolute                    |
+| `scrape.ts`           | composes them; validates with Zod                               |
+| `cli.ts`              | argv in, Markdown or JSON out, exit codes on failure            |
 
 ## Development
 

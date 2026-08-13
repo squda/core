@@ -33,6 +33,8 @@ export function scrapeHtml(doc: HtmlDocument): ScrapedDocument {
     markdown: converted.markdown,
     links: converted.links,
     images: converted.images,
+    structured: extracted.structured,
+    feeds: extracted.feeds,
     wall,
   });
 }

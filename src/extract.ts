@@ -1,6 +1,7 @@
 import { Readability } from '@mozilla/readability';
 import * as cheerio from 'cheerio';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { extractFeeds, extractStructured, type Feed, type StructuredData } from './structured.js';
 import type { HtmlDocument } from './types.js';
 
 export interface ExtractedContent {
@@ -9,7 +10,10 @@ export interface ExtractedContent {
   /** Main-content HTML, still HTML at this point. markdown.ts converts it. */
   html: string;
   /** Which path produced `html`. Phase 2's strategy selector reads this. */
-  strategy: 'readability' | 'body';
+  strategy: 'readability' | 'body' | 'json-ld';
+  /** What the page says about itself, when it says anything. */
+  structured: StructuredData | null;
+  feeds: Feed[];
 }
 
 /**
@@ -78,8 +82,13 @@ const silentConsole = new VirtualConsole();
 export function extractContent(doc: HtmlDocument): ExtractedContent {
   const $ = cheerio.load(doc.html);
 
-  const title = resolveTitle($);
-  const description = resolveDescription($);
+  // Read the declared data before stripping: JSON-LD lives in a <script>, and
+  // the junk pass removes every one of those.
+  const structured = extractStructured($);
+  const feeds = extractFeeds($, doc.finalUrl);
+
+  const title = resolveTitle($, structured);
+  const description = resolveDescription($, structured);
 
   $([...JUNK_SELECTORS, ...FURNITURE_SELECTORS].join(',')).remove();
 
@@ -88,9 +97,38 @@ export function extractContent(doc: HtmlDocument): ExtractedContent {
   const bodyHtml = $('body').html() ?? '';
 
   const article = readArticle($.html(), doc.finalUrl);
-  if (article) return { title, description, html: article, strategy: 'readability' };
+  if (article)
+    return { title, description, html: article, strategy: 'readability', structured, feeds };
 
-  return { title, description, html: bodyHtml, strategy: 'body' };
+  // The publisher's own copy of the article beats a dump of <body>, which at
+  // this point is a page we failed to find the content in.
+  const declared = structured?.articleBody;
+  if (declared && declared.length > 200) {
+    return {
+      title,
+      description,
+      html: asParagraphs(declared),
+      strategy: 'json-ld',
+      structured,
+      feeds,
+    };
+  }
+
+  return { title, description, html: bodyHtml, strategy: 'body', structured, feeds };
+}
+
+/** JSON-LD articleBody is plain text. Give it the minimum structure markdown needs. */
+function asParagraphs(body: string): string {
+  return body
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => `<p>${escapeHtml(block)}</p>`)
+    .join('\n');
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
@@ -114,11 +152,12 @@ function readArticle(html: string, url: string): string | null {
   return content;
 }
 
-/** <title>, then og:title, then the first <h1>. */
-function resolveTitle($: cheerio.CheerioAPI): string {
+/** <title>, then og:title, then JSON-LD's headline, then the first <h1>. */
+function resolveTitle($: cheerio.CheerioAPI, structured: StructuredData | null): string {
   const candidates = [
     $('head > title').first().text(),
     $('meta[property="og:title"]').attr('content'),
+    structured?.headline ?? undefined,
     $('h1').first().text(),
   ];
 
@@ -129,11 +168,15 @@ function resolveTitle($: cheerio.CheerioAPI): string {
   return '';
 }
 
-/** meta description, then og:description. Null when the page offers neither. */
-function resolveDescription($: cheerio.CheerioAPI): string | null {
+/** meta description, then og:description, then JSON-LD's. Null when there is none. */
+function resolveDescription(
+  $: cheerio.CheerioAPI,
+  structured: StructuredData | null,
+): string | null {
   const candidates = [
     $('meta[name="description"]').attr('content'),
     $('meta[property="og:description"]').attr('content'),
+    structured?.description ?? undefined,
   ];
 
   for (const candidate of candidates) {

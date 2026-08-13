@@ -47,6 +47,21 @@ export const ImageSchema = z.object({
   alt: z.string(),
 });
 
+export const StructuredDataSchema = z.object({
+  type: z.string(),
+  headline: z.string().nullable(),
+  description: z.string().nullable(),
+  author: z.string().nullable(),
+  datePublished: z.string().nullable(),
+  articleBody: z.string().nullable(),
+});
+
+export const FeedSchema = z.object({
+  url: z.string().url(),
+  title: z.string(),
+  kind: z.enum(['rss', 'atom']),
+});
+
 export const WallSchema = z.object({
   kind: z.enum(['login', 'captcha', 'consent']),
   reason: z.string(),
@@ -62,6 +77,10 @@ export const ScrapedDocumentSchema = z.object({
   markdown: z.string(),
   links: z.array(LinkSchema),
   images: z.array(ImageSchema),
+  /** What the page declares about itself in JSON-LD, when it declares anything. */
+  structured: StructuredDataSchema.nullable(),
+  /** RSS/Atom feeds the page advertises — the cheap way to find its other pages. */
+  feeds: z.array(FeedSchema),
   /**
    * Set when the page succeeded but isn't the page you wanted — a login wall,
    * a bot check, a consent screen. Null on an ordinary page. Phase 4 must
