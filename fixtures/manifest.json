@@ -1,0 +1,56 @@
+[
+  {
+    "name": "blog-post",
+    "url": "https://overreacted.io/the-wet-codebase/",
+    "finalUrl": "https://overreacted.io/the-wet-codebase/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-13T16:27:57.034Z",
+    "bytes": 22937
+  },
+  {
+    "name": "docs-page",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input",
+    "finalUrl": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input",
+    "status": 200,
+    "contentType": "text/html",
+    "fetchedAt": "2026-08-13T16:27:59.202Z",
+    "bytes": 307395
+  },
+  {
+    "name": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "finalUrl": "https://en.wikipedia.org/wiki/Web_scraping",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-13T16:27:59.866Z",
+    "bytes": 239573
+  },
+  {
+    "name": "spa-empty-root",
+    "url": "https://excalidraw.com/",
+    "finalUrl": "https://excalidraw.com/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-13T16:28:00.275Z",
+    "bytes": 6856
+  },
+  {
+    "name": "form-page",
+    "url": "https://httpbin.org/forms/post",
+    "finalUrl": "https://httpbin.org/forms/post",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-13T16:28:02.141Z",
+    "bytes": 1397
+  },
+  {
+    "name": "news-article",
+    "url": "https://apnews.com/hub/technology",
+    "finalUrl": "https://apnews.com/technology",
+    "status": 200,
+    "contentType": "text/html;charset=UTF-8",
+    "fetchedAt": "2026-08-13T16:28:04.510Z",
+    "bytes": 1418953
+  }
+]

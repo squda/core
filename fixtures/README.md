@@ -3,17 +3,36 @@
 Saved HTML pages. Tests run against these files, **never** against the live network
 (plan, Phase 1 step 8 — "a test that hits the network isn't a test").
 
-Phase 1 wants 5–6 pages with genuinely different structure. Suggested:
+Load them with `loadFixture(name)` from `tests/fixtures.ts`, which returns the recorded
+response as an `HtmlDocument` — same shape `fetchPage` produces, so extraction tests run
+the real pipeline offline.
 
-- a blog post (article-shaped — Readability's happy path)
-- a docs page (heavy nav/sidebar to strip)
-- a Wikipedia article (huge, tables, footnotes)
-- a news article (ads, cookie banner, paywall furniture)
-- a page whose body is an empty `<div id="root">` (proves you need Phase 2)
-- something with a form on it (you'll reuse it in Phase 4)
+## What's here
 
-Grab one with:
+| name             | why it's here                                                                    |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `blog-post`      | article-shaped, hand-written HTML — Readability's happy path                     |
+| `docs-page`      | MDN: heavy nav/sidebar/breadcrumbs to strip. Redirected — a live `finalUrl` case |
+| `wikipedia`      | huge, tables, footnotes, edit links                                              |
+| `news-article`   | 1.4MB of ads, embeds, and furniture around the content                           |
+| `spa-empty-root` | body is `<div id="root"></div>` — the page that proves you need Phase 2          |
+| `form-page`      | 11 inputs, radios, checkboxes, a select — reused in Phase 4                      |
 
-    curl -sL --compressed -A 'Mozilla/5.0' 'https://example.com/post' -o fixtures/blog-post.html
+`manifest.json` records the url, the `finalUrl` after redirects, status, content-type, and
+when each was captured. Add a row when you add a page; `tests/fixtures.test.ts` fails if you
+forget.
 
-Commit them. They're the reason your tests stay deterministic when the site redesigns.
+## Adding one
+
+```
+npx tsx scripts/grab-fixture.ts https://example.com/post blog-post
+```
+
+...or by hand, if you'd rather:
+
+```
+curl -sL --compressed -A 'Mozilla/5.0' 'https://example.com/post' -o fixtures/new-page.html
+```
+
+Commit them. They're the reason your tests stay deterministic when the site redesigns —
+and the reason a failing extraction test means _your parser_ changed, not the internet.
