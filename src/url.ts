@@ -105,11 +105,10 @@ export function normaliseUrl(input: string): string {
     }
   }
   // Stable: duplicate keys keep their relative order, which is the one case
-  // where query order carries meaning.
+  // where query order carries meaning. It also drops a now-empty "?".
   url.searchParams.sort();
 
-  // URL keeps a trailing "?" once searchParams has been touched.
-  return url.toString().replace(/\?$/, '');
+  return url.toString();
 }
 
 /**
