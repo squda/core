@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FetchTimeoutError } from '../src/errors.js';
-import { HttpStrategy } from '../src/http-strategy.js';
+import { FetchTimeoutError } from '../src/core/errors.js';
+import { HttpStrategy } from '../src/fetching/http.js';
 import { describeFetchStrategyContract } from './strategy-contract.js';
 import { loadFixture } from './fixtures.js';
 

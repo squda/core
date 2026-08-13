@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { assertFetchable, isPrivateAddress } from '../src/ssrf.js';
-import { BlockedAddressError } from '../src/errors.js';
-import { fetchPage } from '../src/fetch.js';
+import { assertFetchable, isPrivateAddress } from '../src/fetching/ssrf.js';
+import { BlockedAddressError } from '../src/core/errors.js';
+import { fetchPage } from '../src/fetching/request.js';
 import { fakeResponse, redirectResponse, stubFetch } from './helpers.js';
 
 /** Never touches DNS: hostnames go through an injected resolver, or are IP literals. */

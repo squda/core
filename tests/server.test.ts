@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../src/server.js';
-import { SqliteCache } from '../src/cache.js';
-import { BrowserPool } from '../src/browser-pool.js';
-import { Logger } from '../src/log.js';
+import { createApp } from '../src/service/app.js';
+import { SqliteCache } from '../src/service/cache.js';
+import { BrowserPool } from '../src/fetching/pool.js';
+import { Logger } from '../src/support/log.js';
 import {
   FetchTimeoutError,
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-} from '../src/errors.js';
+} from '../src/core/errors.js';
 import { loadFixture } from './fixtures.js';
 import { deferred } from './helpers.js';
-import { scrapeHtml } from '../src/scrape.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 
 /**
  * Hono apps answer `app.request()` directly, so these run with no port, no

@@ -4,8 +4,8 @@ import {
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-} from '../src/errors.js';
-import { fetchPage } from '../src/fetch.js';
+} from '../src/core/errors.js';
+import { fetchPage } from '../src/fetching/request.js';
 import { fakeResponse, redirectResponse, stubFetch } from './helpers.js';
 
 /**

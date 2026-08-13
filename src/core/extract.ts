@@ -2,7 +2,7 @@ import { Readability } from '@mozilla/readability';
 import * as cheerio from 'cheerio';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { extractFeeds, extractStructured, type Feed, type StructuredData } from './structured.js';
-import { collapseWhitespace } from './text.js';
+import { collapseWhitespace } from '../support/text.js';
 import type { HtmlDocument } from './types.js';
 
 export interface ExtractedContent {

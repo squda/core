@@ -1,4 +1,4 @@
-import type { HtmlDocument } from './types.js';
+import type { HtmlDocument } from '../core/types.js';
 
 /**
  * Phase 2, step 2 — the seam between "get me this page" and *how*.

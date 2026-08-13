@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractContent } from '../src/extract.js';
+import { extractContent } from '../src/core/extract.js';
 import { loadFixture } from './fixtures.js';
 import { htmlDocument } from './helpers.js';
 

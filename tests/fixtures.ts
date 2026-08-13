@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { HtmlDocument } from '../src/types.js';
+import type { HtmlDocument } from '../src/core/types.js';
 
 /**
  * Loads the saved pages in fixtures/ as HtmlDocuments, so the extract and

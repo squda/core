@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scrapeHtml } from '../src/scrape.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { fixtureNames, loadFixture } from './fixtures.js';
 
 /**

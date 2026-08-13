@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { chromium } from 'playwright';
-import { BrowserPool } from '../src/browser-pool.js';
+import { BrowserPool } from '../src/fetching/pool.js';
 import { startTestServer, type TestServer } from './test-server.js';
 
 /** Real Chromium, real local server. Run with `pnpm test:browser`. */

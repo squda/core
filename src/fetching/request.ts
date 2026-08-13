@@ -4,10 +4,10 @@ import {
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-} from './errors.js';
+} from '../core/errors.js';
 import { assertFetchable } from './ssrf.js';
 import { USER_AGENT } from './user-agent.js';
-import type { HtmlDocument } from './types.js';
+import type { HtmlDocument } from '../core/types.js';
 import type { FetchOptions } from './strategy.js';
 
 /**

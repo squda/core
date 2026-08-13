@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { chromium } from 'playwright';
-import { BrowserStrategy } from '../src/browser-strategy.js';
-import { HttpStrategy } from '../src/http-strategy.js';
+import { BrowserStrategy } from '../src/fetching/browser.js';
+import { HttpStrategy } from '../src/fetching/http.js';
 import {
   FetchTimeoutError,
   HttpStatusError,
   UnsupportedContentTypeError,
   NetworkError,
-} from '../src/errors.js';
-import { scrapeHtml } from '../src/scrape.js';
+} from '../src/core/errors.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { describeFetchStrategyContract } from './strategy-contract.js';
 import { startTestServer, type TestServer } from './test-server.js';
 

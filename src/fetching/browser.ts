@@ -10,11 +10,11 @@ import {
   HttpStatusError,
   NetworkError,
   UnsupportedContentTypeError,
-} from './errors.js';
+} from '../core/errors.js';
 import { assertFetchable } from './ssrf.js';
 import { USER_AGENT } from './user-agent.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
-import type { HtmlDocument } from './types.js';
+import type { HtmlDocument } from '../core/types.js';
 
 /**
  * Phase 2 — the same page, fetched by a real browser.

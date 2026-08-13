@@ -1,11 +1,11 @@
-import { HttpStrategy } from './http-strategy.js';
+import { HttpStrategy } from '../fetching/http.js';
 import { extractContent } from './extract.js';
 import { toMarkdown } from './markdown.js';
 import { normaliseUrl } from './url.js';
 import { judge } from './select.js';
-import { defaultBrowserPool, type BrowserPool } from './browser-pool.js';
+import { defaultBrowserPool, type BrowserPool } from '../fetching/pool.js';
 import { detectWall } from './wall.js';
-import type { FetchStrategy } from './strategy.js';
+import type { FetchStrategy } from '../fetching/strategy.js';
 import { ScrapedDocumentSchema, type HtmlDocument, type ScrapedDocument } from './types.js';
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toMarkdown } from '../src/markdown.js';
+import { toMarkdown } from '../src/core/markdown.js';
 
 const BASE = 'https://example.com/docs/guide/intro';
 

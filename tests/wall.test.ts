@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { detectWall } from '../src/wall.js';
-import { scrapeHtml } from '../src/scrape.js';
+import { detectWall } from '../src/core/wall.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { fixtureNames, loadFixture } from './fixtures.js';
-import type { Link } from '../src/types.js';
+import type { Link } from '../src/core/types.js';
 
 function links(...pairs: [string, string][]): Link[] {
   return pairs.map(([href, text]) => ({ href, text }));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { judge } from '../src/select.js';
-import { scrapeHtml } from '../src/scrape.js';
+import { judge } from '../src/core/select.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { htmlDocument } from './helpers.js';
 import { loadFixture } from './fixtures.js';
 

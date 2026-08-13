@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
 import { toAbsoluteUrl } from './url.js';
-import { collapseWhitespace } from './text.js';
+import { collapseWhitespace } from '../support/text.js';
 import type { Image, Link } from './types.js';
 
 export interface ConvertedContent {

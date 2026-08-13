@@ -1,7 +1,7 @@
-import { Limiter } from './limit.js';
+import { Limiter } from '../support/limit.js';
 import type { FetchStrategy } from './strategy.js';
-import type { BrowserFetchOptions } from './browser-strategy.js';
-import type { HtmlDocument } from './types.js';
+import type { BrowserFetchOptions } from './browser.js';
+import type { HtmlDocument } from '../core/types.js';
 
 /**
  * One browser, shared, with a hard cap on how many pages use it at once.
@@ -82,7 +82,7 @@ export class BrowserPool {
     if (this.#strategy) return this.#strategy;
 
     this.#starting ??= (async () => {
-      const { BrowserStrategy } = await import('./browser-strategy.js');
+      const { BrowserStrategy } = await import('./browser.js');
       this.#launches += 1;
       return new BrowserStrategy();
     })();

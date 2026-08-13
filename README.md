@@ -70,20 +70,18 @@ requests behind a concurrency cap.
 `scrape()` knows nothing about the CLI, and the CLI knows nothing about HTTP mechanics. The
 strategy is chosen by `select.ts`, a pure function over a fetch that already happened.
 
-| file                  | job                                                             |
-| --------------------- | --------------------------------------------------------------- |
-| `url.ts`              | canonical URL for fetching and caching; link resolution         |
-| `fetch.ts`            | the HTTP GET, and the error taxonomy everything else uses       |
-| `strategy.ts`         | the `FetchStrategy` interface                                   |
-| `http-strategy.ts`    | `fetchPage` behind that interface                               |
-| `browser-strategy.ts` | Playwright behind the same interface                            |
-| `select.ts`           | "was that result empty enough to retry?"                        |
-| `structured.ts`       | JSON-LD and RSS/Atom — the surfaces a site publishes on purpose |
-| `wall.ts`             | login walls, bot checks, consent screens — 200 OK, wrong page   |
-| `extract.ts`          | strip the junk, find the article                                |
-| `markdown.ts`         | HTML → Markdown, every URL resolved absolute                    |
-| `scrape.ts`           | composes them; validates with Zod                               |
-| `cli.ts`              | argv in, Markdown or JSON out, exit codes on failure            |
+| where           | what lives there                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/core/`     | the pipeline: url → fetch result → document. Knows nothing about HTTP, browsers, databases or processes             |
+| `src/fetching/` | getting the bytes: the `FetchStrategy` seam, the HTTP and browser implementations, the browser pool, the SSRF guard |
+| `src/service/`  | the HTTP adapter: routes, cache, job queue                                                                          |
+| `src/support/`  | primitives with no domain in them: concurrency limiter, logger, text                                                |
+| `src/cli.ts`    | entry point — argv in, Markdown or JSON out                                                                         |
+| `src/server.ts` | entry point — builds the cache, pool and logger, then listens                                                       |
+
+Dependencies point one way: `service` and `cli` use `core` and `fetching`; `core` imports neither
+of them. That is what let the HTTP adapter arrive without touching the scraper, and what will let
+a different store arrive without touching either.
 
 ## Development
 

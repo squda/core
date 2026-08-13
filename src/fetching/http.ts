@@ -1,6 +1,6 @@
-import { fetchPage } from './fetch.js';
+import { fetchPage } from './request.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
-import type { HtmlDocument } from './types.js';
+import type { HtmlDocument } from '../core/types.js';
 
 /**
  * Phase 1's fetchPage, wearing the Phase 2 interface.

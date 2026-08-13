@@ -1,6 +1,6 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { BlockedAddressError } from './errors.js';
+import { BlockedAddressError } from '../core/errors.js';
 
 /**
  * Phase 9, step 1, pulled forward — because this is a security bug in code

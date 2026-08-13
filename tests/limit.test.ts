@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Limiter } from '../src/limit.js';
+import { Limiter } from '../src/support/limit.js';
 import { deferred } from './helpers.js';
 
 describe('Limiter', () => {

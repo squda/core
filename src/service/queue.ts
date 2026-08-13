@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { Limiter } from './limit.js';
-import type { ScrapedDocument } from './types.js';
+import { Limiter } from '../support/limit.js';
+import type { ScrapedDocument } from '../core/types.js';
 
 /**
  * Phase 3, step 4 — work that outlives a request, and step 7 — surviving load.

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as cheerio from 'cheerio';
-import { extractFeeds, extractStructured } from '../src/structured.js';
-import { extractContent } from '../src/extract.js';
-import { scrapeHtml } from '../src/scrape.js';
+import { extractFeeds, extractStructured } from '../src/core/structured.js';
+import { extractContent } from '../src/core/extract.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { htmlDocument as page } from './helpers.js';
 import { loadFixture } from './fixtures.js';
 

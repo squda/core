@@ -1,6 +1,6 @@
 import Database, { type Database as Db } from 'better-sqlite3';
-import { ScrapedDocumentSchema, type ScrapedDocument } from './types.js';
-import { normaliseUrl } from './url.js';
+import { ScrapedDocumentSchema, type ScrapedDocument } from '../core/types.js';
+import { normaliseUrl } from '../core/url.js';
 
 /**
  * Phase 3, step 3 — don't fetch the same page twice.

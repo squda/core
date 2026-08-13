@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Logger } from '../src/log.js';
+import { Logger } from '../src/support/log.js';
 
 function capture() {
   const lines: Record<string, unknown>[] = [];

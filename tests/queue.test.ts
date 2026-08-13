@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { JobQueue, QueueFullError } from '../src/queue.js';
+import { JobQueue, QueueFullError } from '../src/service/queue.js';
 import { deferred } from './helpers.js';
-import { scrapeHtml } from '../src/scrape.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { loadFixture } from './fixtures.js';
 
 const DOCUMENT = scrapeHtml(loadFixture('blog-post'));

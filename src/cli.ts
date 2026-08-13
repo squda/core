@@ -1,8 +1,8 @@
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { FetchError, HttpStatusError, type FetchErrorKind } from './errors.js';
-import { BlockedAddressError, InvalidUrlError } from './errors.js';
-import { scrape } from './scrape.js';
+import { FetchError, HttpStatusError, type FetchErrorKind } from './core/errors.js';
+import { BlockedAddressError, InvalidUrlError } from './core/errors.js';
+import { scrape } from './core/scrape.js';
 
 /**
  * Phase 1, step 7 (the --format half) — the CLI.

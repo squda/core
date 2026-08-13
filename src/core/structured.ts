@@ -1,6 +1,6 @@
 import type * as cheerio from 'cheerio';
 import { toAbsoluteUrl } from './url.js';
-import { collapseOrNull as collapse } from './text.js';
+import { collapseOrNull as collapse } from '../support/text.js';
 
 /**
  * The surfaces a site publishes *on purpose*.

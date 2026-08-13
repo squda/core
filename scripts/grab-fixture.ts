@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { fetchPage } from '../src/fetch.js';
-import { normaliseUrl } from '../src/url.js';
+import { fetchPage } from '../src/fetching/request.js';
+import { normaliseUrl } from '../src/core/url.js';
 
 /**
  * Save a page into fixtures/ and record it in the manifest.

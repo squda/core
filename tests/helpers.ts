@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { HtmlDocument } from '../src/types.js';
+import type { HtmlDocument } from '../src/core/types.js';
 
 /**
  * Shared test scaffolding. Not a test file — the helpers every suite was

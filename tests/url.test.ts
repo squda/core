@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidUrlError } from '../src/errors.js';
-import { normaliseUrl, toAbsoluteUrl } from '../src/url.js';
+import { InvalidUrlError } from '../src/core/errors.js';
+import { normaliseUrl, toAbsoluteUrl } from '../src/core/url.js';
 
 /**
  * Keep adding cases here as you find real URLs that break things.

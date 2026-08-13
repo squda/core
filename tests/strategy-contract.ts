@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import type { FetchStrategy } from '../src/strategy.js';
+import type { FetchStrategy } from '../src/fetching/strategy.js';
 
 /**
  * The assertions every FetchStrategy has to satisfy, whatever it is underneath.

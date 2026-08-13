@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SqliteCache } from '../src/cache.js';
-import { scrapeHtml } from '../src/scrape.js';
+import { SqliteCache } from '../src/service/cache.js';
+import { scrapeHtml } from '../src/core/scrape.js';
 import { loadFixture } from './fixtures.js';
-import type { ScrapedDocument } from '../src/types.js';
+import type { ScrapedDocument } from '../src/core/types.js';
 
 const DOCUMENT: ScrapedDocument = scrapeHtml(loadFixture('blog-post'));
 const URL_ = 'https://overreacted.io/the-wet-codebase/';
