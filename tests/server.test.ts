@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/server.js';
 import { SqliteCache } from '../src/cache.js';
+import { BrowserPool } from '../src/browser-pool.js';
 import {
   FetchTimeoutError,
   HttpStatusError,
@@ -251,6 +252,17 @@ describe('GET /health', () => {
     const response = await createApp().request('/health');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true });
+    expect(await response.json()).toEqual({ ok: true, browser: null });
+  });
+
+  // How the concurrency numbers are read from outside — no browser is
+  // launched to answer this, the pool only reports what it is already doing.
+  it('reports pool stats when the app has one', async () => {
+    const response = await createApp({ pool: new BrowserPool() }).request('/health');
+
+    expect(await response.json()).toEqual({
+      ok: true,
+      browser: { active: 0, queued: 0, launches: 0, open: false },
+    });
   });
 });
