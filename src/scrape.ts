@@ -3,6 +3,7 @@ import { extractContent } from './extract.js';
 import { toMarkdown } from './markdown.js';
 import { normaliseUrl } from './url.js';
 import { judge } from './select.js';
+import { defaultBrowserPool, type BrowserPool } from './browser-pool.js';
 import { detectWall } from './wall.js';
 import type { FetchStrategy } from './strategy.js';
 import { ScrapedDocumentSchema, type HtmlDocument, type ScrapedDocument } from './types.js';
@@ -50,6 +51,12 @@ export interface ScrapeOptions {
   strategy?: FetchStrategy;
   /** Where the "which path ran" line goes. Silent by default. */
   log?: (message: string) => void;
+  /**
+   * Shared browser, with its concurrency cap. Defaults to a process-wide pool
+   * that closes the browser as soon as it goes idle; a server passes its own,
+   * configured to stay warm between requests.
+   */
+  pool?: BrowserPool;
 }
 
 const httpStrategy = new HttpStrategy();
@@ -65,7 +72,7 @@ export async function scrape(
   rawUrl: string,
   options: ScrapeOptions = {},
 ): Promise<ScrapedDocument> {
-  const { browser = 'auto', strategy, log = () => {} } = options;
+  const { browser = 'auto', strategy, log = () => {}, pool = defaultBrowserPool } = options;
   const url = normaliseUrl(rawUrl);
 
   if (strategy) {
@@ -75,7 +82,7 @@ export async function scrape(
   }
 
   if (browser === 'always') {
-    return scrapeWithBrowser(url, log, 'requested');
+    return scrapeWithBrowser(url, pool, log, 'requested');
   }
 
   const httpDoc = await httpStrategy.fetch(url);
@@ -92,29 +99,23 @@ export async function scrape(
     return scraped;
   }
 
-  return scrapeWithBrowser(url, log, verdict.reason);
+  return scrapeWithBrowser(url, pool, log, verdict.reason);
 }
 
 /**
- * The retry. Its own function because the browser has to be closed on every
- * path out of it, including the one where it fails.
+ * The retry. The pool owns the browser's lifetime and the concurrency cap, so
+ * this no longer opens or closes anything — it queues for a slot and waits.
  */
 async function scrapeWithBrowser(
   url: string,
+  pool: BrowserPool,
   log: (message: string) => void,
   reason: string,
 ): Promise<ScrapedDocument> {
-  log(`retrying with a browser — ${reason}`);
+  const { queued } = pool.stats();
+  log(`retrying with a browser — ${reason}${queued > 0 ? ` (${queued} waiting)` : ''}`);
 
-  const { BrowserStrategy } = await import('./browser-strategy.js');
-  const strategy = new BrowserStrategy();
-
-  try {
-    const doc = await strategy.fetch(url);
-    const scraped = scrapeHtml(doc);
-    log(`fetched with browser — ${scraped.markdown.length} characters of markdown`);
-    return scraped;
-  } finally {
-    await strategy.close();
-  }
+  const scraped = scrapeHtml(await pool.fetch(url));
+  log(`fetched with browser — ${scraped.markdown.length} characters of markdown`);
+  return scraped;
 }

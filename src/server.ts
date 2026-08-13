@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { serve } from '@hono/node-server';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
+import { BrowserPool } from './browser-pool.js';
 import { SqliteCache, type ScrapeCache } from './cache.js';
 import { FetchError, HttpStatusError } from './fetch.js';
 import { scrape as defaultScrape } from './scrape.js';
@@ -54,12 +55,17 @@ export interface AppOptions {
    * times does not.
    */
   cache?: ScrapeCache | null;
+  /**
+   * The browser pool every request shares. Without one, ten simultaneous SPA
+   * requests would be ten Chromiums.
+   */
+  pool?: BrowserPool;
 }
 
-export function createApp({ scrape = defaultScrape, cache = null }: AppOptions = {}): Hono {
+export function createApp({ scrape = defaultScrape, cache = null, pool }: AppOptions = {}): Hono {
   const app = new Hono();
 
-  app.get('/health', (context) => context.json({ ok: true }));
+  app.get('/health', (context) => context.json({ ok: true, browser: pool?.stats() ?? null }));
 
   app.post('/scrape', async (context) => {
     let body: unknown;
@@ -102,7 +108,7 @@ export function createApp({ scrape = defaultScrape, cache = null }: AppOptions =
         return context.json(cached);
       }
 
-      const document = await scrape(url, { browser });
+      const document = await scrape(url, pool ? { browser, pool } : { browser });
       cache?.set(url, browser, document);
       context.header('x-cache', 'miss');
       return context.json(document);
@@ -148,7 +154,20 @@ if (invokedDirectly) {
   const cachePath = process.env.CACHE_PATH ?? '.cache/scrape.db';
   mkdirSync(dirname(cachePath), { recursive: true });
 
-  const app = createApp({ cache: new SqliteCache(cachePath) });
+  // A service keeps the browser warm between requests; the cap is what stops
+  // a burst of SPA urls from becoming a burst of Chromiums.
+  const pool = new BrowserPool({
+    maxConcurrent: Number(process.env.BROWSER_CONCURRENCY ?? 2),
+    idleMs: 30_000,
+  });
+
+  const app = createApp({ cache: new SqliteCache(cachePath), pool });
   serve({ fetch: app.fetch, port });
   console.log(`scrape service listening on http://localhost:${port} (cache: ${cachePath})`);
+
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      void pool.close().then(() => process.exit(0));
+    });
+  }
 }
