@@ -6,9 +6,9 @@ import type { SupabaseClient } from './supabase.js';
 /**
  * The page cache in Postgres instead of a file on one machine's disk.
  *
- * Same contract as SqliteCache, same key, same "a failed parse is a miss"
- * migration story — the difference is that two instances now share it, which
- * is what the SQLite version could never do.
+ * Same contract as MemoryCache, same key, same "a failed parse is a miss"
+ * migration story — the difference is that two instances share it and it
+ * outlives the process, neither of which a Map in memory can do.
  */
 
 const HOUR_MS = 60 * 60 * 1000;

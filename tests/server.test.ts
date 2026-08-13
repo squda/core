@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/service/app.js';
-import { SqliteCache } from '../src/service/cache.js';
+import { MemoryCache } from '../src/service/cache.js';
 import { BrowserPool } from '../src/fetching/pool.js';
 import { Logger } from '../src/support/log.js';
 import {
@@ -197,7 +197,7 @@ describe('upstream failures map to status codes', () => {
 describe('caching', () => {
   it('serves the second request for a url without scraping again', async () => {
     const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
-    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const app = createApp({ scrape, cache: new MemoryCache() });
     const url = 'https://overreacted.io/the-wet-codebase/';
 
     const first = await post(app, { url });
@@ -212,7 +212,7 @@ describe('caching', () => {
   // The Phase 1 url decision, visible from the outside at last.
   it('counts a tracking-tagged url as the same page', async () => {
     const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
-    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const app = createApp({ scrape, cache: new MemoryCache() });
 
     await post(app, { url: 'https://overreacted.io/the-wet-codebase/?utm_source=twitter' });
     const second = await post(app, {
@@ -225,7 +225,7 @@ describe('caching', () => {
 
   it('does not serve an auto result to a browser=never request', async () => {
     const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
-    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const app = createApp({ scrape, cache: new MemoryCache() });
     const url = 'https://overreacted.io/the-wet-codebase/';
 
     await post(app, { url });
@@ -237,7 +237,7 @@ describe('caching', () => {
 
   it('never caches a failure', async () => {
     const scrape = vi.fn().mockRejectedValue(new HttpStatusError('https://a.test/', 500));
-    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const app = createApp({ scrape, cache: new MemoryCache() });
 
     await post(app, { url: 'https://a.test/' });
     await post(app, { url: 'https://a.test/' });
@@ -314,7 +314,7 @@ describe('the job flow', () => {
 
   it('fills the cache, so the synchronous endpoint answers instantly afterwards', async () => {
     const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
-    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const app = createApp({ scrape, cache: new MemoryCache() });
     const url = 'https://overreacted.io/the-wet-codebase/';
 
     const created = await app.request('/jobs', { method: 'POST', body: JSON.stringify({ url }) });

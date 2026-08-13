@@ -54,7 +54,7 @@ scrape service listening on http://localhost:3000 (cache: .cache/scrape.db)
 
 Responses carry `x-cache: hit|miss`. Env vars: `PORT`, `CACHE_PATH`, `BROWSER_CONCURRENCY`.
 
-Results are cached in SQLite for an hour, keyed on the normalised url plus fetch mode — so
+Results are cached for an hour, keyed on the normalised url plus fetch mode — so
 `?utm_source=twitter` and `?utm_source=rss` are one entry. One browser is shared across all
 requests behind a concurrency cap.
 
@@ -96,4 +96,4 @@ pnpm format
 Tests never hit the live network. `fixtures/` holds six real pages captured with
 `npx tsx scripts/grab-fixture.ts <url> <name>`; see [fixtures/README.md](./fixtures/README.md).
 
-Requires Node 20+, pnpm, and `npx playwright install chromium` for the browser path.
+Requires Node 22+, pnpm, and `npx playwright install chromium` for the browser path.

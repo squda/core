@@ -1,9 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SqliteCache } from '../src/service/cache.js';
+import { MemoryCache } from '../src/service/cache.js';
 import { scrapeHtml } from '../src/core/scrape.js';
 import { loadFixture } from './fixtures.js';
 import type { ScrapedDocument } from '../src/core/types.js';
@@ -14,11 +10,10 @@ const URL_ = 'https://overreacted.io/the-wet-codebase/';
 let clock = Date.parse('2026-08-14T12:00:00Z');
 const now = () => clock;
 
-const caches: SqliteCache[] = [];
+const caches: MemoryCache[] = [];
 
-/** In-memory, so every test gets a fresh database and nothing touches disk. */
-function makeCache(ttlMs = 60_000): SqliteCache {
-  const cache = new SqliteCache(':memory:', { ttlMs, now });
+function makeCache(ttlMs = 60_000): MemoryCache {
+  const cache = new MemoryCache({ ttlMs, now });
   caches.push(cache);
   return cache;
 }
@@ -124,37 +119,48 @@ describe('expiry', () => {
 
 describe('when the stored shape no longer matches', () => {
   /**
-   * The migration story, in one test. A document written before a field
-   * existed fails today's schema — and a failed parse is a *miss*, not a
-   * crash. That is what makes adding a field to ScrapedDocument a non-event:
-   * old rows quietly stop being served and get refetched.
-   *
-   * Uses a file database so a second connection can write the stale row, which
-   * an in-memory one can't do.
+   * The migration story. A document written before a field existed fails
+   * today's schema — and a failed parse is a *miss*, not a crash, so the entry
+   * is dropped and the page refetched. That is what makes adding a field to
+   * ScrapedDocument a non-event, here and in Postgres alike.
    */
-  it('treats a row from an older schema as a miss and drops it', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'scrape-cache-'));
-    const path = join(directory, 'cache.db');
-
-    const cache = new SqliteCache(path, { now });
-    caches.push(cache);
-    await cache.set(URL_, 'auto', DOCUMENT);
-    expect(await cache.get(URL_, 'auto')).not.toBeNull();
-
-    // Yesterday's document: written before `structured` and `feeds` existed.
+  it('treats an entry from an older shape as a miss and drops it', async () => {
+    const cache = makeCache();
     const stale = { ...DOCUMENT } as Record<string, unknown>;
     delete stale.structured;
     delete stale.feeds;
 
-    const writer = new Database(path);
-    writer.prepare('update pages set document = ?').run(JSON.stringify(stale));
-    writer.close();
+    await cache.set(URL_, 'auto', stale as never);
 
     expect(await cache.get(URL_, 'auto')).toBeNull();
     expect(cache.size()).toBe(0);
+  });
+});
 
-    await cache.close();
-    caches.pop();
-    rmSync(directory, { recursive: true, force: true });
+describe('bounded size', () => {
+  // A process is not a disk: without a bound this is a memory leak that only
+  // shows up after a long run over many urls.
+  it('evicts the least recently stored entry past its limit', async () => {
+    const cache = new MemoryCache({ maxEntries: 2, now });
+
+    await cache.set('https://a.test/', 'auto', DOCUMENT);
+    await cache.set('https://b.test/', 'auto', DOCUMENT);
+    await cache.set('https://c.test/', 'auto', DOCUMENT);
+
+    expect(cache.size()).toBe(2);
+    expect(await cache.get('https://a.test/', 'auto')).toBeNull();
+    expect(await cache.get('https://c.test/', 'auto')).not.toBeNull();
+  });
+
+  it('keeps a page that is asked for again', async () => {
+    const cache = new MemoryCache({ maxEntries: 2, now });
+
+    await cache.set('https://a.test/', 'auto', DOCUMENT);
+    await cache.set('https://b.test/', 'auto', DOCUMENT);
+    await cache.set('https://a.test/', 'auto', DOCUMENT);
+    await cache.set('https://c.test/', 'auto', DOCUMENT);
+
+    expect(await cache.get('https://a.test/', 'auto')).not.toBeNull();
+    expect(await cache.get('https://b.test/', 'auto')).toBeNull();
   });
 });

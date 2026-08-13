@@ -119,7 +119,13 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 1. Wrap the scraper in **Hono**. One endpoint, Zod-validated request body.
 2. Keep the CLI. It should now be a thin client over the same core function — proof that your core has no HTTP assumptions baked into it.
-3. Cache results keyed by normalised URL, with a TTL. SQLite (`better-sqlite3`) is plenty; skip Redis. Write the SQL by hand here — Phase 5 introduces Drizzle over the same database, and the contrast is the point: you'll know what the ORM is buying you because you'll have done it without one.
+3. Cache results keyed by normalised URL, with a TTL. Write the SQL by hand here — Phase 5 introduces Drizzle over the same database, and the contrast is the point: you'll know what the ORM is buying you because you'll have done it without one.
+   > **Changed 2026-08-14.** This said SQLite via `better-sqlite3`, and it was, until Supabase
+   > arrived. Postgres is now the store and the hand-written SQL lives in `supabase/migrations/`,
+   > so the contrast Phase 5 wants is intact. SQLite itself is gone: it was the project's only
+   > native module — a build approval, a version pin, and the thing that made the Node 22 upgrade
+   > segfault — and once Postgres existed, the local store's only remaining job was to stop a dev
+   > loop refetching a page. A Map does that.
 4. A job queue for slow browser scrapes: `POST /scrape` returns a job id immediately, `GET /jobs/:id` returns status and result. An in-memory queue is fine at this stage.
 5. Concurrency limit on browser scrapes so ten requests don't launch ten Chromiums.
 6. Structured logging with a request id threaded through.
@@ -241,7 +247,8 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 **Steps**
 
 1. Design the profile schema. Group it: identity, contact, address, employment, documents. Every field gets a canonical key (`address.postalCode`) and a set of **aliases** (`zip`, `zipcode`, `pin code`, `postcode`) — the aliases are the seed vocabulary the Phase 6 matcher and embedding index both build on.
-2. SQLite via **Drizzle ORM**, with migrations from day one.
+2. **Drizzle ORM** over the Supabase Postgres (not SQLite — see the Phase 3 note), with
+   migrations from day one. The tables already exist in `supabase/migrations/0002_profile.sql`.
 3. The **event log** — append-only, never updated, never deleted:
    ```ts
    FieldEvent = {

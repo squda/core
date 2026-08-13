@@ -1,8 +1,6 @@
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { serve } from '@hono/node-server';
 import { BrowserPool } from './fetching/pool.js';
-import { SqliteCache } from './service/cache.js';
+import { MemoryCache } from './service/cache.js';
 import { createApp } from './service/app.js';
 import { Logger } from './support/log.js';
 import { loadConfig } from './support/config.js';
@@ -45,9 +43,7 @@ if (supabase) {
     onError: (error) => logger.error('job store failed', { error: String(error) }),
   });
 } else {
-  const cachePath = process.env.CACHE_PATH ?? '.cache/scrape.db';
-  mkdirSync(dirname(cachePath), { recursive: true });
-  cache = new SqliteCache(cachePath);
+  cache = new MemoryCache();
 }
 
 serve({
@@ -66,7 +62,7 @@ serve({
 
 logger.info('listening', {
   port: config.port,
-  store: supabase ? 'supabase' : 'sqlite (jobs in memory)',
+  store: supabase ? 'supabase' : 'memory (nothing survives a restart)',
   auth: config.requireAuth ? 'required' : 'off',
 });
 
