@@ -8,6 +8,8 @@ import { Logger } from './support/log.js';
 import { loadConfig } from './support/config.js';
 import { createServiceClient } from './service/supabase.js';
 import { SupabaseCache } from './service/supabase-cache.js';
+import { SupabaseJobStore } from './service/supabase-job-store.js';
+import type { JobStore } from './service/job-store.js';
 import type { ScrapeCache } from './service/cache.js';
 
 /**
@@ -32,9 +34,15 @@ const supabase = config.supabase
 // Postgres when Supabase is configured, a local file when it isn't — same
 // interface either way, so nothing downstream knows which one it got.
 let cache: ScrapeCache;
+let jobStore: JobStore | undefined;
 if (supabase) {
   cache = new SupabaseCache(supabase, {
     onError: (error) => logger.error('cache unavailable', { error: String(error) }),
+  });
+  // Jobs outlive the process here: a restart mid-scrape leaves a readable
+  // record rather than an id that 404s.
+  jobStore = new SupabaseJobStore(supabase, {
+    onError: (error) => logger.error('job store failed', { error: String(error) }),
   });
 } else {
   const cachePath = process.env.CACHE_PATH ?? '.cache/scrape.db';
@@ -48,6 +56,7 @@ serve({
     pool,
     logger,
     ...(supabase ? { supabase } : {}),
+    ...(jobStore ? { jobStore } : {}),
     requireAuth: config.requireAuth ?? false,
     jobConcurrency: config.jobConcurrency,
     maxQueued: config.maxQueued,
@@ -57,7 +66,7 @@ serve({
 
 logger.info('listening', {
   port: config.port,
-  store: supabase ? 'supabase' : 'sqlite',
+  store: supabase ? 'supabase' : 'sqlite (jobs in memory)',
   auth: config.requireAuth ? 'required' : 'off',
 });
 

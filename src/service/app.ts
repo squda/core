@@ -4,6 +4,7 @@ import type { BrowserPool } from '../fetching/pool.js';
 import type { ScrapeCache } from './cache.js';
 import { authenticate, type Caller } from './auth.js';
 import type { SupabaseClient } from './supabase.js';
+import type { JobStore } from './job-store.js';
 import { z } from 'zod';
 import { BlockedAddressError, FetchError, HttpStatusError } from '../core/errors.js';
 import { Logger } from '../support/log.js';
@@ -78,6 +79,8 @@ export interface AppOptions {
   jobConcurrency?: number;
   /** Jobs allowed to wait. Beyond this the service answers 429 rather than growing. */
   maxQueued?: number;
+  /** Where jobs live. Memory by default; Postgres to survive a restart. */
+  jobStore?: JobStore;
   /** Where structured logs go. Silent by default so tests don't shout. */
   logger?: Logger;
   /**
@@ -95,6 +98,7 @@ export function createApp({
   pool,
   jobConcurrency = 4,
   maxQueued = 100,
+  jobStore,
   logger = new Logger({}, { write: () => {} }),
   supabase,
   requireAuth = false,
@@ -137,6 +141,7 @@ export function createApp({
       concurrency: jobConcurrency,
       maxQueued,
       describeError,
+      ...(jobStore ? { store: jobStore } : {}),
       // Deduplicate on the same identity the cache uses, so the utm variants of
       // one page are one job rather than five.
       keyOf: (url, browser) => `${browser}\n${normaliseUrl(url)}`,
@@ -181,8 +186,8 @@ export function createApp({
     app.use('/jobs/*', guard);
   }
 
-  app.get('/health', (context) =>
-    context.json({ ok: true, browser: pool?.stats() ?? null, jobs: queue.stats() }),
+  app.get('/health', async (context) =>
+    context.json({ ok: true, browser: pool?.stats() ?? null, jobs: await queue.stats() }),
   );
 
   app.post('/scrape', async (context) => {
@@ -211,7 +216,7 @@ export function createApp({
       // Validated here rather than inside the job: making someone poll to
       // discover they typed the url wrong is a bad way to say 400.
       normaliseUrl(url);
-      const job = queue.add(url, browser);
+      const job = await queue.add(url, browser, context.get('caller')?.id ?? null);
       log(context).info('job accepted', { jobId: job.id, url, browser });
       context.header('location', `/jobs/${job.id}`);
       return context.json(job, 202);
@@ -224,14 +229,14 @@ export function createApp({
     }
   });
 
-  app.get('/jobs/:id', (context) => {
+  app.get('/jobs/:id', async (context) => {
     const id = context.req.param('id');
-    const job = queue.get(id);
+    const job = await queue.get(id);
     if (job) return context.json(job);
 
     // Gone is not the same as never existed, and a caller polling a job we
     // retired deserves to be told which one happened.
-    if (queue.wasRetired(id)) {
+    if (await queue.wasRetired(id)) {
       return context.json(
         { error: { code: 'job-expired', message: 'this job finished and has since been retired' } },
         410,

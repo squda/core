@@ -9,11 +9,11 @@ const URL_ = 'https://overreacted.io/the-wet-codebase/';
 
 /** Waits for a job to leave the running states. */
 async function settle(queue: JobQueue, id: string) {
-  await vi.waitFor(() => {
-    const job = queue.get(id);
+  await vi.waitFor(async () => {
+    const job = await queue.get(id);
     expect(job?.status === 'done' || job?.status === 'failed').toBe(true);
   });
-  return queue.get(id)!;
+  return (await queue.get(id))!;
 }
 
 describe('accepting work', () => {
@@ -24,7 +24,7 @@ describe('accepting work', () => {
       return DOCUMENT;
     });
 
-    const job = queue.add(URL_, 'auto');
+    const job = await queue.add(URL_, 'auto');
 
     expect(job.id).toMatch(/^[0-9a-f-]{36}$/);
     // 'running' when a slot was free — the work starts synchronously, and add
@@ -40,7 +40,7 @@ describe('accepting work', () => {
   it('carries the work through to done, with the document attached', async () => {
     const queue = new JobQueue(async () => DOCUMENT);
 
-    const finished = await settle(queue, queue.add(URL_, 'auto').id);
+    const finished = await settle(queue, (await queue.add(URL_, 'auto')).id);
 
     expect(finished.status).toBe('done');
     expect(finished.document?.title).toBe('The WET Codebase — overreacted');
@@ -52,20 +52,23 @@ describe('accepting work', () => {
     const run = vi.fn().mockResolvedValue(DOCUMENT);
     const queue = new JobQueue(run);
 
-    await settle(queue, queue.add(URL_, 'always').id);
+    await settle(queue, (await queue.add(URL_, 'always')).id);
 
     expect(run).toHaveBeenCalledWith(URL_, 'always', expect.any(AbortSignal));
   });
 
-  it('hands out a different id per distinct job', () => {
+  it('hands out a different id per distinct job', async () => {
     const queue = new JobQueue(async () => DOCUMENT);
 
-    expect(queue.add(URL_, 'auto').id).not.toBe(queue.add('https://other.test/', 'auto').id);
+    const first = await queue.add(URL_, 'auto');
+    const second = await queue.add('https://other.test/', 'auto');
+
+    expect(first.id).not.toBe(second.id);
   });
 
   it('returns a snapshot, not a live handle', async () => {
     const queue = new JobQueue(async () => DOCUMENT);
-    const job = queue.add(URL_, 'auto');
+    const job = await queue.add(URL_, 'auto');
     const statusAtAdd = job.status;
 
     await settle(queue, job.id);
@@ -73,7 +76,7 @@ describe('accepting work', () => {
     // The object handed back at `add` time never changes under the caller.
     expect(job.status).toBe(statusAtAdd);
     expect(job.document).toBeNull();
-    expect(queue.get(job.id)?.status).toBe('done');
+    expect((await queue.get(job.id))?.status).toBe('done');
   });
 });
 
@@ -85,7 +88,7 @@ describe('failure', () => {
       throw new Error('upstream exploded');
     });
 
-    const failed = await settle(queue, queue.add(URL_, 'auto').id);
+    const failed = await settle(queue, (await queue.add(URL_, 'auto')).id);
 
     expect(failed.status).toBe('failed');
     expect(failed.error).toEqual({ code: 'internal', message: 'upstream exploded' });
@@ -100,7 +103,7 @@ describe('failure', () => {
       { describeError: () => ({ code: 'timeout', message: 'took too long' }) },
     );
 
-    const failed = await settle(queue, queue.add(URL_, 'auto').id);
+    const failed = await settle(queue, (await queue.add(URL_, 'auto')).id);
 
     expect(failed.error).toEqual({ code: 'timeout', message: 'took too long' });
   });
@@ -113,8 +116,8 @@ describe('failure', () => {
       return DOCUMENT;
     });
 
-    const first = queue.add(URL_, 'auto');
-    const second = queue.add(URL_, 'never');
+    const first = await queue.add(URL_, 'auto');
+    const second = await queue.add(URL_, 'never');
 
     expect((await settle(queue, first.id)).status).toBe('failed');
     expect((await settle(queue, second.id)).status).toBe('done');
@@ -137,20 +140,22 @@ describe('concurrency', () => {
       { concurrency: 2 },
     );
 
-    const ids = Array.from(
-      { length: 6 },
-      (_unused, index) => queue.add(`https://example.test/page-${index}`, 'auto').id,
+    const jobs = await Promise.all(
+      Array.from({ length: 6 }, (_unused, index) =>
+        queue.add(`https://example.test/page-${index}`, 'auto'),
+      ),
     );
-    await vi.waitFor(() => expect(queue.stats().running).toBe(2));
+    const ids = jobs.map((job) => job.id);
+    await vi.waitFor(async () => expect((await queue.stats()).running).toBe(2));
 
     // Four parked behind the cap — the reason the queue exists.
-    expect(queue.stats().queued).toBe(4);
+    expect((await queue.stats()).queued).toBe(4);
 
     gate.resolve();
     for (const id of ids) await settle(queue, id);
 
     expect(peak).toBe(2);
-    expect(queue.stats()).toMatchObject({ done: 6, running: 0, queued: 0 });
+    expect(await queue.stats()).toMatchObject({ done: 6, running: 0, queued: 0 });
   });
 });
 
@@ -166,7 +171,12 @@ describe('deduplication', () => {
     });
     const queue = new JobQueue(run);
 
-    const jobs = Array.from({ length: 5 }, () => queue.add(URL_, 'auto'));
+    // Sequential on purpose: five callers arriving one after another must
+    // still land on one job, not just five that raced into the same tick.
+    const jobs = [];
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      jobs.push(await queue.add(URL_, 'auto'));
+    }
 
     expect(new Set(jobs.map((job) => job.id)).size).toBe(1);
     expect(run).toHaveBeenCalledTimes(1);
@@ -175,27 +185,33 @@ describe('deduplication', () => {
     await settle(queue, jobs[0]!.id);
   });
 
-  it('keeps different fetch modes as separate work', () => {
+  it('keeps different fetch modes as separate work', async () => {
     const run = vi.fn(async () => DOCUMENT);
     const queue = new JobQueue(run, { keyOf: (url, browser) => `${browser}\n${url}` });
 
-    queue.add(URL_, 'auto');
-    queue.add(URL_, 'never');
+    await queue.add(URL_, 'auto');
+    await queue.add(URL_, 'never');
 
     expect(run).toHaveBeenCalledTimes(2);
   });
 
   it('coalesces urls that share an identity, when told how', async () => {
-    const run = vi.fn(async () => DOCUMENT);
+    const gate = deferred();
+    const run = vi.fn(async () => {
+      await gate.promise;
+      return DOCUMENT;
+    });
     const queue = new JobQueue(run, {
       keyOf: (url, browser) => `${browser}\n${new URL(url).origin}${new URL(url).pathname}`,
     });
 
-    const first = queue.add(`${URL_}?utm_source=twitter`, 'auto');
-    const second = queue.add(`${URL_}?utm_source=rss`, 'auto');
+    const first = await queue.add(`${URL_}?utm_source=twitter`, 'auto');
+    const second = await queue.add(`${URL_}?utm_source=rss`, 'auto');
 
     expect(second.id).toBe(first.id);
     expect(run).toHaveBeenCalledTimes(1);
+
+    gate.resolve();
     await settle(queue, first.id);
   });
 
@@ -203,9 +219,9 @@ describe('deduplication', () => {
     const run = vi.fn(async () => DOCUMENT);
     const queue = new JobQueue(run);
 
-    const first = queue.add(URL_, 'auto');
+    const first = await queue.add(URL_, 'auto');
     await settle(queue, first.id);
-    const second = queue.add(URL_, 'auto');
+    const second = await queue.add(URL_, 'auto');
 
     expect(second.id).not.toBe(first.id);
     expect(run).toHaveBeenCalledTimes(2);
@@ -225,11 +241,13 @@ describe('backpressure', () => {
       { concurrency: 1, maxQueued: 2 },
     );
 
-    queue.add('https://example.test/running', 'auto');
-    queue.add('https://example.test/waiting-1', 'auto');
-    queue.add('https://example.test/waiting-2', 'auto');
+    await queue.add('https://example.test/running', 'auto');
+    await queue.add('https://example.test/waiting-1', 'auto');
+    await queue.add('https://example.test/waiting-2', 'auto');
 
-    expect(() => queue.add('https://example.test/too-much', 'auto')).toThrow(QueueFullError);
+    await expect(queue.add('https://example.test/too-much', 'auto')).rejects.toBeInstanceOf(
+      QueueFullError,
+    );
 
     gate.resolve();
   });
@@ -244,15 +262,17 @@ describe('backpressure', () => {
       { concurrency: 1, maxQueued: 1 },
     );
 
-    const running = queue.add('https://example.test/a', 'auto');
-    const waiting = queue.add('https://example.test/b', 'auto');
-    expect(() => queue.add('https://example.test/c', 'auto')).toThrow(QueueFullError);
+    const running = await queue.add('https://example.test/a', 'auto');
+    const waiting = await queue.add('https://example.test/b', 'auto');
+    await expect(queue.add('https://example.test/c', 'auto')).rejects.toBeInstanceOf(
+      QueueFullError,
+    );
 
     gate.resolve();
     await settle(queue, running.id);
     await settle(queue, waiting.id);
 
-    expect(() => queue.add('https://example.test/c', 'auto')).not.toThrow();
+    await expect(queue.add('https://example.test/c', 'auto')).resolves.toBeDefined();
   });
 });
 
@@ -268,7 +288,7 @@ describe('the timeout backstop', () => {
       { jobTimeoutMs: 30 },
     );
 
-    const failed = await settle(queue, queue.add(URL_, 'auto').id);
+    const failed = await settle(queue, (await queue.add(URL_, 'auto')).id);
 
     expect(failed.status).toBe('failed');
     expect(failed.error?.message).toContain('budget');
@@ -278,13 +298,13 @@ describe('the timeout backstop', () => {
   it('leaves a job that finishes in time alone', async () => {
     const queue = new JobQueue(async () => DOCUMENT, { jobTimeoutMs: 5_000 });
 
-    expect((await settle(queue, queue.add(URL_, 'auto').id)).status).toBe('done');
+    expect((await settle(queue, (await queue.add(URL_, 'auto')).id)).status).toBe('done');
   });
 });
 
 describe('retention', () => {
-  it('reports nothing for an id it never issued', () => {
-    expect(new JobQueue(async () => DOCUMENT).get('nope')).toBeNull();
+  it('reports nothing for an id it never issued', async () => {
+    expect(await new JobQueue(async () => DOCUMENT).get('nope')).toBeNull();
   });
 
   // Without eviction the map is a memory leak with a request id attached.
@@ -295,20 +315,20 @@ describe('retention', () => {
       now: () => clock,
     });
 
-    const job = queue.add(URL_, 'auto');
+    const job = await queue.add(URL_, 'auto');
     await settle(queue, job.id);
 
     clock += 59_000;
-    expect(queue.get(job.id)).not.toBeNull();
+    expect(await queue.get(job.id)).not.toBeNull();
 
     clock += 2_000;
-    expect(queue.get(job.id)).toBeNull();
+    expect(await queue.get(job.id)).toBeNull();
     // Retired, not imaginary — the caller gets 410 rather than 404.
-    expect(queue.wasRetired(job.id)).toBe(true);
+    expect(await queue.wasRetired(job.id)).toBe(true);
   });
 
-  it('does not claim to have retired an id it never issued', () => {
-    expect(new JobQueue(async () => DOCUMENT).wasRetired('never-existed')).toBe(false);
+  it('does not claim to have retired an id it never issued', async () => {
+    expect(await new JobQueue(async () => DOCUMENT).wasRetired('never-existed')).toBe(false);
   });
 
   it('never evicts a job that is still running', async () => {
@@ -322,10 +342,10 @@ describe('retention', () => {
       { retentionMs: 1, now: () => clock },
     );
 
-    const job = queue.add(URL_, 'auto');
+    const job = await queue.add(URL_, 'auto');
     clock += 60_000;
 
-    expect(queue.get(job.id)).not.toBeNull();
+    expect(await queue.get(job.id)).not.toBeNull();
 
     gate.resolve();
     await settle(queue, job.id);
