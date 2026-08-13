@@ -7,6 +7,7 @@
     "scrape": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write ."
@@ -23,6 +24,7 @@
     "@types/node": "^20.14.0",
     "@types/turndown": "^5.0.4",
     "eslint": "^9.7.0",
+    "playwright": "^1.62.1",
     "prettier": "^3.3.0",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0",
