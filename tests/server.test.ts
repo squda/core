@@ -247,12 +247,102 @@ describe('caching', () => {
   });
 });
 
+describe('the job flow', () => {
+  async function poll(app: ReturnType<typeof createApp>, id: string) {
+    let body!: { status: string; document?: { title: string }; error?: { code: string } };
+    await vi.waitFor(async () => {
+      const response = await app.request(`/jobs/${id}`);
+      body = await response.json();
+      expect(['done', 'failed']).toContain(body.status);
+    });
+    return body;
+  }
+
+  it('accepts work and answers before it is finished', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape });
+
+    const response = await app.request('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://overreacted.io/the-wet-codebase/' }),
+    });
+    const job = (await response.json()) as { id: string; status: string; document: null };
+
+    expect(response.status).toBe(202);
+    expect(response.headers.get('location')).toBe(`/jobs/${job.id}`);
+    expect(job.document).toBeNull();
+  });
+
+  it('reports the document once the work is done', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape });
+
+    const created = await app.request('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://overreacted.io/the-wet-codebase/' }),
+    });
+    const { id } = (await created.json()) as { id: string };
+    const finished = await poll(app, id);
+
+    expect(finished.status).toBe('done');
+    expect(finished.document?.title).toBe('The WET Codebase — overreacted');
+  });
+
+  // A failed job is a completed request: 200 with a failed status, not a 500.
+  it('reports a failure as a finished job, explained the same way /scrape would', async () => {
+    const scrape = vi.fn().mockRejectedValue(new HttpStatusError('https://a.test/', 404));
+    const app = createApp({ scrape });
+
+    const created = await app.request('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://a.test/' }),
+    });
+    const { id } = (await created.json()) as { id: string };
+    const finished = await poll(app, id);
+
+    expect(finished.status).toBe('failed');
+    expect(finished.error?.code).toBe('http-status');
+  });
+
+  it('fills the cache, so the synchronous endpoint answers instantly afterwards', async () => {
+    const scrape = vi.fn().mockResolvedValue(scrapeHtml(loadFixture('blog-post')));
+    const app = createApp({ scrape, cache: new SqliteCache(':memory:') });
+    const url = 'https://overreacted.io/the-wet-codebase/';
+
+    const created = await app.request('/jobs', { method: 'POST', body: JSON.stringify({ url }) });
+    await poll(app, ((await created.json()) as { id: string }).id);
+
+    const direct = await post(app, { url });
+
+    expect(direct.headers.get('x-cache')).toBe('hit');
+    expect(scrape).toHaveBeenCalledTimes(1);
+  });
+
+  it('validates the body exactly as /scrape does', async () => {
+    const response = await createApp().request('/jobs', { method: 'POST', body: '{}' });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('invalid-request');
+  });
+
+  it('404s an id it never issued', async () => {
+    const response = await createApp().request('/jobs/does-not-exist');
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).error.code).toBe('no-such-job');
+  });
+});
+
 describe('GET /health', () => {
   it('answers without touching the network', async () => {
     const response = await createApp().request('/health');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, browser: null });
+    expect(await response.json()).toEqual({
+      ok: true,
+      browser: null,
+      jobs: { queued: 0, running: 0, done: 0, failed: 0 },
+    });
   });
 
   // How the concurrency numbers are read from outside — no browser is
@@ -263,6 +353,7 @@ describe('GET /health', () => {
     expect(await response.json()).toEqual({
       ok: true,
       browser: { active: 0, queued: 0, launches: 0, open: false },
+      jobs: { queued: 0, running: 0, done: 0, failed: 0 },
     });
   });
 });
