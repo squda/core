@@ -3,8 +3,9 @@
 **Stack:** TypeScript / Node throughout (pnpm, `tsx`, Vitest, Zod).
 **Fill surface:** headless browser automation (Playwright).
 **Purpose:** learning project. Every phase is chosen partly for what it forces you to confront.
+**Working solo.** Each phase gives an order of work rather than a split, and the "Done when" is the only reviewer you have.
 
-No timelines. Phases are sized so each one **ends in something you can run and demo to each other**. Don't start a phase until the previous one's "Done when" is actually true.
+No timelines. Phases are sized so each one **ends in something you can run**. Don't start a phase until the previous one's "Done when" is actually true.
 
 ---
 
@@ -37,6 +38,12 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 1. Repo setup: pnpm workspace, TypeScript strict mode, `tsx` for running, Vitest for tests, Prettier + ESLint.
 2. A `fetchPage(url)` that does an HTTP GET with a real User-Agent, follows redirects, and has a timeout.
 3. Validate and normalise the input URL before fetching (reject non-http(s), strip fragments, resolve relative paths).
+   > **Decision — resolved 2026-08-13 (the `?utm_source=` question).** Strip tracking params
+   > (`utm_*` plus an explicit list: `fbclid`, `gclid`, `ref`, …), keep everything else, and sort
+   > what remains. Tracking params identify the *referral*, not the page, so keeping them caches
+   > the same document once per traffic source in Phase 3. Unrecognised params stay, because a
+   > stripped `?id=42` silently fetches the *wrong page* — a much worse failure than a duplicate
+   > cache entry. The list lives in `src/url.ts`; add to it when a real URL warrants it.
 4. Parse HTML with `cheerio`. Strip `<script>`, `<style>`, `<nav>`, `<footer>`, ads.
 5. Extract the main content. Start with `@mozilla/readability` + `jsdom` — it's the same algorithm Firefox Reader Mode uses. Fall back to `<body>` when Readability returns nothing.
    *(Yes, that's two HTML parsers: cheerio for fast surgical stripping, jsdom because Readability needs a real DOM. Deliberate — you'll feel the difference in speed between them, which is the lesson.)*
@@ -50,7 +57,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** you can scrape a blog post, a docs page, and a Wikipedia article, and the Markdown is genuinely readable.
 
-**Split the work:** one of you takes fetch + URL handling + CLI; the other takes extract + convert + the Zod schema. They meet at a single `HtmlDocument` type.
+**Order of work:** read `src/types.ts` first — it's the contract everything else in this phase plugs into, and it's already written. Then `normaliseUrl` (its tests are already red and waiting), then `fetchPage`, then extract → markdown. Save one fixture early and drive `scrapeHtml` straight off the file, so you aren't re-fetching the network every time you change a line.
 
 **What you'll learn**
 - The Node HTTP client story (`fetch`/`undici`), timeouts, redirects, and why User-Agent matters.
@@ -79,7 +86,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** a client-rendered page (any SPA-based site) produces the same quality of Markdown as a static one, and you can see in the logs which strategy ran.
 
-**Split the work:** one drives Playwright and its lifecycle; the other builds the strategy interface, the selection heuristic, and the error taxonomy.
+**Order of work:** define `FetchStrategy` and retrofit the Phase 1 code as `HttpStrategy` *before* Playwright exists — if the interface is right, adding `BrowserStrategy` afterwards touches nothing around it, and that's the phase's real lesson. Then get one SPA rendering, then the selection heuristic, then the error taxonomy last, once you've actually seen the failures rather than imagined them.
 
 **What you'll learn**
 - What a headless browser actually *is*, and precisely why `fetch` returns an empty div on an SPA.
@@ -105,7 +112,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** you can `curl` a URL and get Markdown back, slow pages go through the job flow, and the second request for the same URL is served from cache.
 
-**Split the work:** one takes the HTTP layer, validation, and logging; the other takes cache, queue, and concurrency.
+**Order of work:** HTTP layer first, as thin as you can make it — if the core needs *any* change to get a second adapter, that's the finding. Then the cache (synchronous, easy to test), then the job queue, then the concurrency limit. Four separately demoable steps; resist building them at once.
 
 **What you'll learn**
 - Layering: core logic that knows nothing about HTTP, with CLI and HTTP as two thin adapters over it. This is the single most transferable idea in the project.
@@ -147,7 +154,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** you can point it at a real signup form and get back a JSON list of fields with correct human-readable labels.
 
-**Split the work:** one owns field discovery and selector generation; the other owns label resolution and the fixture suite. Agree the Zod schema together, first, before either writes code.
+**Order of work:** write the `FormSpec` Zod schema first and then leave it alone for the rest of the phase — everything in Part B is built against it. Collect the fixtures *before* writing the walker, so you're designing against real messiness instead of an imagined form. Then field discovery + selectors, then label resolution, then the snapshots.
 
 **What you'll learn**
 - HTML form semantics properly — including how accessibility attributes (`aria-*`, `<label for>`) are the same information a screen reader uses. Accessible forms are scrapeable forms.
@@ -216,11 +223,11 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 5. Writes go through `appendEvent()` only. No `UPDATE` on a value anywhere in the codebase — if you catch one in review, that's a bug.
 6. API: `GET /profile` (the projection), `PUT /profile` and per-field update (which append rather than overwrite), and `GET /profile/:key/history` (the log for one key — you will want this the first time a fill goes wrong).
 7. A `sensitive` flag on fields (national ID, DOB, card details) that the filler must treat differently later.
-8. Seed one real profile for yourselves to test with — as `source: 'seed'` events, like everything else.
+8. Seed one real profile for yourself to test with — as `source: 'seed'` events, like everything else.
 
 **Done when:** you can write a profile through the API, restart the process, read it back intact, and see the full history of any single field. Deleting the projection and recomputing it from the log gives you byte-identical output.
 
-**Split the work:** one designs the schema + alias vocabulary + the projection's resolution rule (this is more thinking than typing); the other does Drizzle, migrations, the append path, and the API.
+**Order of work:** the projection is a pure function over events — write it and its tests before any database exists, since that's the part you can get wrong invisibly. Then Drizzle, migrations, and the append path, then the API. The canonical keys and alias vocabulary are more thinking than typing: do them on paper in one sitting, because Phase 6 inherits whatever you decide here.
 
 **What you'll learn**
 - Data modelling: canonical keys vs. the many names the world uses for the same thing. This is a **domain modelling** exercise, and the alias table *is* your domain vocabulary.
@@ -257,7 +264,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** feeding in a real job-application FormSpec produces a correct FillPlan you'd be happy to execute, and each entry explains itself.
 
-**Split the work:** one builds the deterministic layers 1–4; the other builds the embedding index, the LLM fallback, and the formatters. They share the `FillPlan` type.
+**Order of work:** deterministic layers 1–4 first, then count how many fields they already match across your Phase 4 fixtures. That number is the honest argument for the embedding layer — write it down before you build it. Then the formatters, then embeddings, then the LLM fallback last.
 
 **What you'll learn**
 - Layered matching: exhaust cheap deterministic rules before reaching for a model. Most "AI features" are 80% rules.
@@ -283,7 +290,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** you run one command against a real form URL and get back a screenshot of it correctly filled, unsubmitted.
 
-**Split the work:** one owns the fill mechanics per field type; the other owns dry-run, verification, reporting, and stop conditions.
+**Order of work:** dry-run mode, the screenshot, and the per-field report first — build the ability to *see* what happened before you build anything that can go wrong for real. Then fill mechanics per field type, then read-back verification, then the stop conditions.
 
 **What you'll learn**
 - Browser automation in depth: locators, auto-waiting, and why `sleep()` is always the wrong fix.
@@ -307,10 +314,12 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 **Done when:** URL in one end, screenshot of a filled form out the other, with a review step in the middle.
 
-**Split the work:** don't split by module here — you'd each defend your own. One of you owns the orchestration end-to-end while the other builds the review UI and the write-back loop; then swap and each debug the *other's* half. Integration bugs live in the gaps between modules, and you only find them by crossing over.
+**Order of work:** wire the orchestration end-to-end with no UI at all first, against a form you host locally. Then the review UI, then the write-back loop.
+
+Integration bugs live in the gaps between modules, and working alone you built every one of those gaps yourself — which makes them harder to see, not easier, because the same assumption sits on both sides of the seam. Two cheap substitutes for a second pair of eyes: leave the end-to-end run a day and come back to it, and read each module's *caller* rather than the module, in the order the data flows. Where you find a wrong interface, fix the interface — not the call site that's working around it.
 
 **What you'll learn**
-- Composing independently-built modules and discovering which interfaces you got wrong. Expect at least one.
+- Composing independently-built modules and discovering which interfaces you got wrong. Expect at least one — the phases are far enough apart in time that Phase 4's you and Phase 8's you are effectively two different people.
 - Human-in-the-loop design — where confirmation belongs in an automated pipeline.
 - Feedback loops: a correction that improves future behaviour, which is the cheapest form of "learning" a system can have.
 - End-to-end testing against a controlled fixture rather than the live internet.
@@ -327,7 +336,7 @@ A vector database stays out too. If brute-force cosine over a few hundred vector
 
 ---
 
-## Two things to agree on before writing any code
+## Two things to settle before writing any code
 
 1. ~~**Which "memory" you're building** (Phase 5's open decision). Write the answer down.~~ — **Settled 2026-08-09: all three, layered.** See the decision block in Phase 5.
-2. **That the FormSpec schema is settled between you before Phase 4 starts.** It's the contract two people build against in parallel; changing it mid-phase costs both of you.
+2. **That the FormSpec schema is settled before Phase 4 starts.** It's the contract everything in Part B is built against, and you'll be building against it weeks after writing it. Put it in the code, write down *why* each field is there, and treat a change to it as a decision you make deliberately rather than a drive-by edit while fixing something else.

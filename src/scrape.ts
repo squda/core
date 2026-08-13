@@ -9,7 +9,7 @@ import { ScrapedDocumentSchema, type HtmlDocument, type ScrapedDocument } from '
  * nothing about HTTP servers — that layering is the point of the whole project
  * (plan, Phase 3: "the single most transferable idea").
  *
- * This is already written. Both of you only fill in the pieces it calls.
+ * This is already written. You only fill in the pieces it calls.
  */
 export function scrapeHtml(doc: HtmlDocument): ScrapedDocument {
   const extracted = extractContent(doc);

@@ -3,13 +3,15 @@ import { z } from 'zod';
 /**
  * THE CONTRACT.
  *
- * This file is the only thing both halves of Phase 1 depend on. Agree on it
- * together, then work in parallel without touching each other's files:
+ * Every other file in Phase 1 depends on this one, and on nothing else of
+ * each other:
  *
- *   fetch side  (url.ts, fetch.ts, cli.ts)  produces HtmlDocument
- *   extract side (extract.ts, markdown.ts)  consumes HtmlDocument -> ScrapedDocument
+ *   url.ts, fetch.ts, cli.ts     produce HtmlDocument
+ *   extract.ts, markdown.ts      consume HtmlDocument -> ScrapedDocument
  *
- * Changing anything here is a conversation, not a commit.
+ * That seam is what lets you build one side without holding the other in your
+ * head. Changing anything here is a decision — make it on purpose, not while
+ * you're mid-way through fixing something else.
  */
 
 /** Raw result of getting a page. No parsing has happened yet. */
