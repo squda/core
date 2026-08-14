@@ -1,0 +1,858 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the FormSpec of every captured form > form-checkout 1`] = `
+"FORM #exampleModal > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > form:nth-of-type(1)
+  GET → (posts to itself)
+  submit: (none found)
+  · Contact Email:  [text]
+      selector: #recipient-email
+      from: nearby-text  name=-  id=recipient-email
+  · Contact Email:  [text]
+      selector: #recipient-name
+      from: label-for  name=-  id=recipient-name
+  · Message:  [textarea]
+      selector: #message-text
+      from: label-for  name=-  id=message-text
+
+FORM #signInModal > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > form:nth-of-type(1)
+  GET → (posts to itself)
+  submit: (none found)
+  · Username:  [text]
+      selector: #sign-username
+      from: label-for  name=-  id=sign-username
+  · Password:  [password]  sensitive
+      selector: #sign-password
+      from: label-for  name=-  id=sign-password
+
+FORM #logInModal > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > form:nth-of-type(1)
+  GET → (posts to itself)
+  submit: (none found)
+  · Username:  [text]
+      selector: #loginusername
+      from: nearby-text  name=-  id=loginusername
+  · Password:  [password]  sensitive
+      selector: #loginpassword
+      from: nearby-text  name=-  id=loginpassword"
+`;
+
+exports[`the FormSpec of every captured form > form-job-application 1`] = `
+"FORM #application-form
+  GET → https://job-boards.greenhouse.io/gitlab/jobs/8503792002
+  submit: #application-form > div:nth-of-type(4) > button:nth-of-type(1)
+  · First Name*  [text]  required
+      selector: #first_name
+      from: label-for  name=-  id=first_name
+      autocomplete: given-name
+      maxLength=255
+  · Last Name*  [text]  required
+      selector: #last_name
+      from: label-for  name=-  id=last_name
+      autocomplete: family-name
+      maxLength=255
+  · Email*  [text]  required
+      selector: #email
+      from: label-for  name=-  id=email
+      autocomplete: email
+      maxLength=255
+  · Country  [text]
+      selector: #country
+      from: label-for  name=-  id=country
+      autocomplete: off
+  · Phone  [tel]
+      selector: #phone
+      from: label-for  name=-  id=phone
+      maxLength=255
+  · Attach  [file]
+      selector: #resume
+      from: label-for  name=-  id=resume
+      accept=.pdf,.doc,.docx,.txt,.rtf
+  · Attach  [file]
+      selector: #cover_letter
+      from: label-for  name=-  id=cover_letter
+      accept=.pdf,.doc,.docx,.txt,.rtf
+  · LinkedIn Profile  [text]
+      selector: #question_36101205002
+      from: label-for  name=-  id=question_36101205002
+      maxLength=255
+  · What's the name you'd prefer us to use throughout the interview process?  [text]
+      selector: #question_36101206002
+      from: label-for  name=-  id=question_36101206002
+      maxLength=255
+  · Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?*  [text]  required
+      selector: #question_36101207002
+      from: label-for  name=-  id=question_36101207002
+      autocomplete: off
+      help: Select...
+  · (no label)  [text]  required
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.  [text]
+      selector: #question_36101208002
+      from: label-for  name=-  id=question_36101208002
+      maxLength=255
+  · Will you now or in the future require sponsorship for a visa to remain in your current location?*  [text]  required
+      selector: #question_36101209002
+      from: label-for  name=-  id=question_36101209002
+      autocomplete: off
+      help: Select...
+  · (no label)  [text]  required
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · Have you previously worked at or consulted for GitLab?*  [text]  required
+      selector: #question_36101210002
+      from: label-for  name=-  id=question_36101210002
+      autocomplete: off
+      help: Select...
+  · Have you previously worked at or consulted for GitLab?*  [text]  required
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: nearby-text  name=-  id=-
+  · What is your current country of residence?*  [text]  required
+      selector: #question_36101211002
+      from: label-for  name=-  id=question_36101211002
+      autocomplete: off
+      help: Select...
+  · What is your current country of residence?*  [text]  required
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: nearby-text  name=-  id=-
+  · Gender  [text]
+      selector: #gender
+      from: label-for  name=-  id=gender
+      autocomplete: off
+      help: Select...
+  · Are you Hispanic/Latino?  [text]
+      selector: #hispanic_ethnicity
+      from: label-for  name=-  id=hispanic_ethnicity
+      autocomplete: off
+      help: Select...
+  · Veteran Status  [text]
+      selector: #veteran_status
+      from: label-for  name=-  id=veteran_status
+      autocomplete: off
+      help: Select...
+  · Disability Status  [text]
+      selector: #disability_status
+      from: label-for  name=-  id=disability_status
+      autocomplete: off
+      help: Select..."
+`;
+
+exports[`the FormSpec of every captured form > form-job-application, in full 1`] = `
+[
+  {
+    "action": "https://job-boards.greenhouse.io/gitlab/jobs/8503792002",
+    "fields": [
+      {
+        "accept": null,
+        "autocomplete": "given-name",
+        "description": null,
+        "disabled": false,
+        "id": "first_name",
+        "label": "First Name*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#first_name",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "family-name",
+        "description": null,
+        "disabled": false,
+        "id": "last_name",
+        "label": "Last Name*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#last_name",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "email",
+        "description": null,
+        "disabled": false,
+        "id": "email",
+        "label": "Email*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#email",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": null,
+        "disabled": false,
+        "id": "country",
+        "label": "Country",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#country",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "phone",
+        "label": "Phone",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#phone",
+        "sensitive": false,
+        "step": null,
+        "type": "tel",
+      },
+      {
+        "accept": ".pdf,.doc,.docx,.txt,.rtf",
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "resume",
+        "label": "Attach",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#resume",
+        "sensitive": false,
+        "step": null,
+        "type": "file",
+      },
+      {
+        "accept": ".pdf,.doc,.docx,.txt,.rtf",
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "cover_letter",
+        "label": "Attach",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#cover_letter",
+        "sensitive": false,
+        "step": null,
+        "type": "file",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "question_36101205002",
+        "label": "LinkedIn Profile",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#question_36101205002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "question_36101206002",
+        "label": "What's the name you'd prefer us to use throughout the interview process?",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#question_36101206002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "question_36101207002",
+        "label": "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#question_36101207002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": null,
+        "label": null,
+        "labelSource": null,
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "question_36101208002",
+        "label": "It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": 255,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#question_36101208002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "question_36101209002",
+        "label": "Will you now or in the future require sponsorship for a visa to remain in your current location?*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#question_36101209002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": null,
+        "label": null,
+        "labelSource": null,
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "question_36101210002",
+        "label": "Have you previously worked at or consulted for GitLab?*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#question_36101210002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": null,
+        "label": "Have you previously worked at or consulted for GitLab?*",
+        "labelSource": "nearby-text",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "question_36101211002",
+        "label": "What is your current country of residence?*",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#question_36101211002",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": null,
+        "label": "What is your current country of residence?*",
+        "labelSource": "nearby-text",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": true,
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "gender",
+        "label": "Gender",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#gender",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "hispanic_ethnicity",
+        "label": "Are you Hispanic/Latino?",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#hispanic_ethnicity",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "veteran_status",
+        "label": "Veteran Status",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#veteran_status",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
+        "description": "Select...",
+        "disabled": false,
+        "id": "disability_status",
+        "label": "Disability Status",
+        "labelSource": "label-for",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#disability_status",
+        "sensitive": false,
+        "step": null,
+        "type": "text",
+      },
+    ],
+    "method": "get",
+    "name": null,
+    "selector": "#application-form",
+    "submitSelector": "#application-form > div:nth-of-type(4) > button:nth-of-type(1)",
+  },
+]
+`;
+
+exports[`the FormSpec of every captured form > form-login-minimal 1`] = `
+"FORM #login
+  POST → https://the-internet.herokuapp.com/authenticate
+  submit: #login > button:nth-of-type(1)
+  · Username  [text]
+      selector: #username
+      from: label-for  name=username  id=username
+  · Password  [password]  sensitive
+      selector: #password
+      from: label-for  name=password  id=password"
+`;
+
+exports[`the FormSpec of every captured form > form-login-nolabels 1`] = `
+"FORM #login_button_container > div:nth-of-type(1) > form:nth-of-type(1)
+  GET → (posts to itself)
+  submit: #login-button
+  · Username  [text]
+      selector: #user-name
+      from: placeholder  name=user-name  id=user-name
+      placeholder: Username
+  · Password  [password]  sensitive
+      selector: #password
+      from: placeholder  name=password  id=password
+      placeholder: Password"
+`;
+
+exports[`the FormSpec of every captured form > form-practice 1`] = `
+"FORM #userForm
+  GET → (posts to itself)
+  submit: #submit
+  · First Name  [text]  required
+      selector: #firstName
+      from: placeholder  name=-  id=firstName
+      autocomplete: off
+      placeholder: First Name
+  · Last Name  [text]  required
+      selector: #lastName
+      from: placeholder  name=-  id=lastName
+      autocomplete: off
+      placeholder: Last Name
+  · name@example.com  [text]
+      selector: #userEmail
+      from: placeholder  name=-  id=userEmail
+      autocomplete: off
+      placeholder: name@example.com
+      pattern=^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$
+  · Gender  [radio]  required
+      selector: #userForm [name="gender"]
+      from: nearby-text  name=gender  id=gender-radio-1
+      options: Male=Male, Female=Female, Other=Other
+  · Mobile Number  [text]  required
+      selector: #userNumber
+      from: placeholder  name=-  id=userNumber
+      autocomplete: off
+      placeholder: Mobile Number
+      pattern=\\d*  maxLength=10  minLength=10
+  · (no label)  [text]  sensitive
+      selector: #dateOfBirthInput
+      from: nothing  name=-  id=dateOfBirthInput
+  · (no label)  [text]
+      selector: #subjectsInput
+      from: nothing  name=-  id=subjectsInput
+      autocomplete: off
+  · Sports  [checkbox]
+      selector: #hobbies-checkbox-1
+      from: label-for  name=-  id=hobbies-checkbox-1
+  · Reading  [checkbox]
+      selector: #hobbies-checkbox-2
+      from: label-for  name=-  id=hobbies-checkbox-2
+  · Music  [checkbox]
+      selector: #hobbies-checkbox-3
+      from: label-for  name=-  id=hobbies-checkbox-3
+  · Picture  [file]
+      selector: #uploadPicture
+      from: nearby-text  name=-  id=uploadPicture
+  · Current Address  [textarea]
+      selector: #currentAddress
+      from: placeholder  name=-  id=currentAddress
+      placeholder: Current Address
+  · Select State  [text]
+      selector: #react-select-3-input
+      from: nearby-text  name=-  id=react-select-3-input
+      autocomplete: off
+      help: Select State
+  · Select City  [text]  disabled
+      selector: #react-select-4-input
+      from: nearby-text  name=-  id=react-select-4-input
+      autocomplete: off
+      help: Select City"
+`;
+
+exports[`the FormSpec of every captured form > form-signup 1`] = `
+"FORM #searchform
+  GET → https://auth.wikimedia.org/enwiki/w/index.php
+  submit: #searchform > button:nth-of-type(1)
+  · Search Wikipedia  [search]
+      selector: #searchInput
+      from: aria-label  name=search  id=searchInput
+      autocomplete: off
+      placeholder: Search Wikipedia
+  · (no label)  [hidden]
+      selector: #searchform [name="title"]
+      from: nothing  name=title  id=-
+
+FORM #userlogin2
+  POST → https://auth.wikimedia.org/enwiki/w/index.php?title=Special:CreateAccount&centralauthLoginToken=1e29e1525c0eba30fc50b7d255b9c9f6&usesul3=1&useformat=desktop
+  submit: #wpCreateaccount
+  · (no label)  [hidden]
+      selector: #userlogin2 [name="title"]
+      from: nothing  name=title  id=-
+  · Username  [text]  required
+      selector: #wpName2
+      from: label-for  name=wpName  id=wpName2
+      autocomplete: username
+      placeholder: Enter your username
+  · Password  [password]  required sensitive
+      selector: #wpPassword2
+      from: label-for  name=wpPassword  id=wpPassword2
+      autocomplete: new-password
+      placeholder: Enter a password
+  · Confirm password  [password]  required sensitive
+      selector: #wpRetype
+      from: label-for  name=retype  id=wpRetype
+      autocomplete: new-password
+      placeholder: Enter password again
+  · Email address  [email]
+      selector: #wpEmail
+      from: label-for  name=email  id=wpEmail
+      autocomplete: email
+      placeholder: Enter your email address
+      maxLength=255
+  · (no label)  [hidden]
+      selector: #wpEditToken
+      from: nothing  name=wpEditToken  id=wpEditToken
+  · (no label)  [hidden]
+      selector: #userlogin2 [name="authAction"]
+      from: nothing  name=authAction  id=-
+  · (no label)  [hidden]
+      selector: #userlogin2 [name="force"]
+      from: nothing  name=force  id=-
+  · (no label)  [hidden]
+      selector: #userlogin2 [name="wpCreateaccountToken"]
+      from: nothing  name=wpCreateaccountToken  id=-
+  · (no label)  [hidden]
+      selector: #mw-input-campaign
+      from: nothing  name=campaign  id=mw-input-campaign
+
+FORM #vector-sticky-search-form
+  GET → https://auth.wikimedia.org/enwiki/w/index.php
+  submit: #vector-sticky-search-form > button:nth-of-type(1)
+  · Search Wikipedia  [search]
+      selector: #vector-sticky-search-form [name="search"]
+      from: placeholder  name=search  id=-
+      autocomplete: off
+      placeholder: Search Wikipedia
+  · (no label)  [hidden]
+      selector: #vector-sticky-search-form [name="title"]
+      from: nothing  name=title  id=-
+
+FORM (controls outside any <form>)
+  GET → (posts to itself)
+  submit: (none found)
+  · Main menu  [checkbox]
+      selector: #vector-main-menu-dropdown-checkbox
+      from: label-for  name=-  id=vector-main-menu-dropdown-checkbox
+  · Appearance  [checkbox]
+      selector: #vector-appearance-dropdown-checkbox
+      from: label-for  name=-  id=vector-appearance-dropdown-checkbox
+  · Personal tools  [checkbox]
+      selector: #vector-user-links-dropdown-checkbox
+      from: label-for  name=-  id=vector-user-links-dropdown-checkbox
+  · English  [checkbox]
+      selector: #vector-variants-dropdown-checkbox
+      from: label-for  name=-  id=vector-variants-dropdown-checkbox
+  · Tools  [checkbox]
+      selector: #vector-page-tools-dropdown-checkbox
+      from: label-for  name=-  id=vector-page-tools-dropdown-checkbox"
+`;
