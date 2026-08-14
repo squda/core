@@ -125,12 +125,20 @@ export const FieldSchema = z.object({
   readonly: z.boolean(),
 
   /**
-   * Do not fill without explicit confirmation.
+   * A password, a card number, a national id, a date of birth.
    *
-   * Derived here rather than left to the filler, because this is where the
-   * evidence is: a password field, a field named for a national id or a card
-   * number. Phase 5 carries the same flag on profile values, and Phase 7 must
-   * refuse to touch either without being asked twice.
+   * **A label, not a blocker** (decided 2026-08-14). The filler fills every
+   * field it has a value for, including these; what the flag buys is that the
+   * Phase 8 review UI can highlight them, a report can call them out, and a
+   * future policy could gate them without re-deriving the judgement.
+   *
+   * Note what limits the blast radius already: the filler can only type what
+   * the profile store holds. If a card number was never stored, "fill
+   * everything" fills nothing sensitive.
+   *
+   * Derived here rather than at fill time because this is where the evidence
+   * is — type, name, label and autocomplete all at hand. Phase 5 carries the
+   * same flag on stored values, so both halves use the same word.
    */
   sensitive: z.boolean(),
 

@@ -265,7 +265,9 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 4. The **projection**: `getProfile()` folds the log into current values per canonical key. Write it as a pure function over events so it's testable without a database. Decide and write down the resolution rule when two events disagree (most recent? highest confidence? `user-edit` always beats `form-fill`?).
 5. Writes go through `appendEvent()` only. No `UPDATE` on a value anywhere in the codebase — if you catch one in review, that's a bug.
 6. API: `GET /profile` (the projection), `PUT /profile` and per-field update (which append rather than overwrite), and `GET /profile/:key/history` (the log for one key — you will want this the first time a fill goes wrong).
-7. A `sensitive` flag on fields (national ID, DOB, card details) that the filler must treat differently later.
+7. A `sensitive` flag on fields (national ID, DOB, card details). It marks rather than blocks —
+   see the Phase 7 note — so the filler still fills them and the review UI highlights them. The
+   same word is used on the FormSpec side (`src/core/sensitive.ts`), deliberately.
 8. Seed one real profile for yourself to test with — as `source: 'seed'` events, like everything else.
 
 **Done when:** you can write a profile through the API, restart the process, read it back intact, and see the full history of any single field. Deleting the projection and recomputing it from the log gives you byte-identical output.
@@ -331,7 +333,14 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 3. Verify after writing: read each value back and confirm it stuck. `fill()` dispatches an `input` event and works with React most of the time — but masked inputs, autocomplete widgets, and rich text editors will drop it. When a value doesn't stick, fall back to character-by-character typing (`locator.pressSequentially()`), and if that fails too, dispatch the events by hand.
 4. Handle what real pages do: fields that appear only after another is filled, multi-step wizards, validation errors surfacing on blur.
 5. Report the outcome: filled / failed / skipped per field, with a screenshot and the final page state.
-6. Stop conditions — refuse to proceed past a CAPTCHA, a payment step, or anything marked `sensitive` without explicit confirmation.
+6. Stop conditions — refuse to proceed past a CAPTCHA or a payment step.
+   > **Changed 2026-08-14.** This also said "or anything marked `sensitive`". It no longer does:
+   > the filler fills every field it has a value for, and `sensitive` is a _label_ rather than a
+   > gate. Two things make that defensible — the filler can only type what the profile store
+   > holds, so a card number never stored is a card number never typed; and dry-run is the
+   > default, so nothing is submitted until a person has looked. What the flag still buys is a
+   > review screen that highlights those rows and a report that names them. CAPTCHAs and payment
+   > steps remain hard stops: those are boundaries, not preferences.
 
 **Done when:** you run one command against a real form URL and get back a screenshot of it correctly filled, unsubmitted.
 
@@ -354,7 +363,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 **Steps**
 
 1. `POST /autofill { url, dryRun }` → scrape → FormSpec → match → fill → report.
-2. A minimal review UI: show the FillPlan, let the user correct a value, then execute. (Vite + React, or plain HTML — this doesn't need to be nice.)
+2. A minimal review UI: show the FillPlan, let the user correct a value, then execute. (Vite + React, or plain HTML — this doesn't need to be nice.) Rows whose field is `sensitive` are highlighted — that flag marks rather than blocks, so this screen is where it earns its keep.
 3. Corrections write back to the profile _and_ to the alias table, so the same label matches next time. This is the first place the system genuinely learns.
 4. End-to-end test against a form you host locally, so it can't break or rate-limit you.
 

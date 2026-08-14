@@ -1,7 +1,12 @@
 import type { FieldType } from './form-spec.js';
 
 /**
- * Which boxes must not be filled without being asked twice.
+ * Which boxes hold something private.
+ *
+ * **This marks; it does not block** (decided 2026-08-14). The filler fills
+ * everything it has a value for. The flag exists so a review screen can
+ * highlight those rows and a report can name them — and so a policy that does
+ * want to gate them has a boolean to read rather than a judgement to re-make.
  *
  * Decided here, while the page is in front of us, because this is where the
  * evidence is: the input type, the name the page gave it, the label a person
@@ -10,9 +15,9 @@ import type { FieldType } from './form-spec.js';
  * and every other consumer — the Phase 8 review UI, the API — would have to
  * derive it again and could disagree.
  *
- * Erring toward sensitive is the cheap direction: a false positive asks the
- * user a question they can answer, a false negative types their card number
- * into a page nobody looked at.
+ * Erring toward sensitive stays the cheap direction even as a label: a false
+ * positive highlights one row too many, a false negative lets a card number
+ * scroll past unremarked in a review nobody looked at twice.
  */
 
 export interface SensitiveInput {
