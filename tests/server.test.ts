@@ -10,7 +10,7 @@ import {
   UnsupportedContentTypeError,
 } from '../src/core/errors.js';
 import { loadFixture } from './fixtures.js';
-import { deferred } from './helpers.js';
+import { deferred, fakeResponse, stubFetch } from './helpers.js';
 import { scrapeHtml } from '../src/core/scrape.js';
 
 /**
@@ -467,6 +467,59 @@ describe('request logging', () => {
     const failure = lines.find((line) => line.message === 'unexpected failure');
     expect(failure).toMatchObject({ level: 'error' });
     expect(String(failure?.stack)).toContain('boom');
+  });
+});
+
+describe('GET /form-spec', () => {
+  it('returns the forms on a page', async () => {
+    const html = loadFixture('form-login-minimal').html;
+    stubFetch((url) => fakeResponse(url, { body: html }));
+
+    const response = await createApp().request(
+      '/form-spec?url=https://the-internet.herokuapp.com/login',
+    );
+    const spec = (await response.json()) as { forms: { fields: unknown[] }[] };
+
+    expect(response.status).toBe(200);
+    expect(spec.forms[0]?.fields).toHaveLength(2);
+  });
+
+  // Extraction strips every <input> on the way to Markdown, so this endpoint
+  // must read the original HTML rather than anything the scraper cached.
+  it('sees fields that the markdown pipeline throws away', async () => {
+    const html = loadFixture('form-job-application').html;
+    stubFetch((url) => fakeResponse(url, { body: html }));
+
+    const response = await createApp().request('/form-spec?url=https://job-boards.test/x');
+    const spec = (await response.json()) as { forms: { fields: { label: string }[] }[] };
+    const fields = spec.forms.flatMap((form) => form.fields);
+
+    expect(fields).toHaveLength(22);
+    expect(fields.some((field) => field.label === 'First Name*')).toBe(true);
+  });
+
+  it.each([
+    ['no url', '/form-spec'],
+    ['an unknown browser mode', '/form-spec?url=https://a.test/&browser=maybe'],
+  ])('rejects %s with 400', async (_label, path) => {
+    const response = await createApp().request(path);
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('invalid-request');
+  });
+
+  /**
+   * The fast suite sets SCRAPE_ALLOW_PRIVATE=1 to stay hermetic, so the guard
+   * is asserted directly rather than through the endpoint — what matters here
+   * is that this route goes through the same fetch path as everything else,
+   * which the two tests above already show.
+   */
+  it('fetches through the guarded path, not around it', async () => {
+    const fetchSpy = stubFetch((url) => fakeResponse(url, { body: '<form><input></form>' }));
+
+    await createApp().request('/form-spec?url=https://example.com/');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
 

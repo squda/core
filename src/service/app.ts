@@ -11,6 +11,7 @@ import { Logger } from '../support/log.js';
 import { JobQueue, QueueFullError, type JobError } from './queue.js';
 import { scrape as defaultScrape } from '../core/scrape.js';
 import { normaliseUrl } from '../core/url.js';
+import { extractForms } from '../core/forms.js';
 import { InvalidUrlError } from '../core/errors.js';
 import type { ScrapedDocument } from '../core/types.js';
 
@@ -134,6 +135,44 @@ export function createApp({
     return { document, cached: false };
   }
 
+  /**
+   * A page as fetched, before extraction touches it.
+   *
+   * The form walker needs the original HTML — Readability keeps a <form> and
+   * throws its controls away — so this cannot come from the document cache,
+   * which stores Markdown.
+   */
+  async function fetchDocument(url: string, browser: string) {
+    const { HttpStrategy } = await import('../fetching/http.js');
+    const normalised = normaliseUrl(url);
+
+    if (browser === 'always') {
+      const { BrowserStrategy } = await import('../fetching/browser.js');
+      const strategy = new BrowserStrategy();
+      try {
+        return await strategy.fetch(normalised);
+      } finally {
+        await strategy.close();
+      }
+    }
+
+    const document = await new HttpStrategy().fetch(normalised);
+    if (browser === 'never') return document;
+
+    // Same rule the scraper uses: an empty shell means the page builds itself.
+    const { judge } = await import('../core/select.js');
+    const { scrapeHtml } = await import('../core/scrape.js');
+    if (!judge(document, scrapeHtml(document)).needsBrowser) return document;
+
+    const { BrowserStrategy } = await import('../fetching/browser.js');
+    const strategy = new BrowserStrategy();
+    try {
+      return await strategy.fetch(normalised);
+    } finally {
+      await strategy.close();
+    }
+  }
+
   const queue = new JobQueue(
     async (url, browser, signal) =>
       (await scrapeOnce(url, browser, logger.child({ job: true }), signal)).document,
@@ -201,6 +240,44 @@ export function createApp({
       const { document, cached } = await scrapeOnce(url, browser, log(context));
       context.header('x-cache', cached ? 'hit' : 'miss');
       return context.json(document);
+    } catch (error) {
+      return respondToFailure(context, error);
+    }
+  });
+
+  /**
+   * Phase 4, step 5 — the same page, read for structure instead of prose.
+   *
+   * It fetches through the same `scrape()` path so the browser escalation, the
+   * SSRF guard and the concurrency cap all apply — then walks the raw HTML,
+   * because extraction strips every <input> on the way to Markdown.
+   *
+   * Not cached: a FormSpec is cheap to produce once the page is in hand, and
+   * the page itself is already cached one layer down.
+   */
+  app.get('/form-spec', async (context) => {
+    const url = context.req.query('url');
+    if (!url) {
+      return context.json({ error: { code: 'invalid-request', message: 'url is required' } }, 400);
+    }
+
+    const browser = context.req.query('browser') ?? 'auto';
+    if (browser !== 'auto' && browser !== 'never' && browser !== 'always') {
+      return context.json(
+        { error: { code: 'invalid-request', message: 'browser must be auto, never or always' } },
+        400,
+      );
+    }
+
+    try {
+      const document = await fetchDocument(url, browser);
+      const spec = extractForms(document);
+      log(context).info('form spec', {
+        url,
+        forms: spec.forms.length,
+        fields: spec.forms.reduce((total, form) => total + form.fields.length, 0),
+      });
+      return context.json(spec);
     } catch (error) {
       return respondToFailure(context, error);
     }

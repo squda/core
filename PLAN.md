@@ -193,7 +193,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
    > resolution has to earn its place. Still missing: a multi-step wizard, and a real government
    > form — gov.uk's flows need a session, so that one may have to be built locally.
 
-**Done when:** you can point it at a real signup form and get back a JSON list of fields with correct human-readable labels.
+**Done when:** you can point it at a real signup form and get back a JSON list of fields with correct human-readable labels. — **Done 2026-08-14.** `GET /form-spec?url=` returns all 22 fields of the live GitLab application with their labels, types and `autocomplete` tokens, and escalates to a browser for demoqa's form, where the radios come back as one `Gender` field with three options.
 
 **Order of work:** write the `FormSpec` Zod schema first and then leave it alone for the rest of the phase — everything in Part B is built against it. Collect the fixtures _before_ writing the walker, so you're designing against real messiness instead of an imagined form. Then field discovery + selectors, then label resolution, then the snapshots.
 
