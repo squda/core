@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
+import { cors } from 'hono/cors';
 import type { BrowserPool } from '../fetching/pool.js';
 import type { ScrapeCache } from './cache.js';
 import { authenticate, type Caller } from './auth.js';
@@ -91,6 +92,19 @@ export interface AppOptions {
    */
   supabase?: SupabaseClient;
   requireAuth?: boolean;
+  /**
+   * Browser origins allowed to call this service.
+   *
+   * Empty by default, which sends no CORS headers at all — a browser then
+   * refuses the request, and every non-browser caller (curl, the CLI, a server)
+   * is unaffected, because CORS is a rule browsers apply to themselves.
+   *
+   * `apps/web` is the reason this exists. It is an explicit list rather than
+   * `*` because the moment auth is required, a wildcard origin with credentials
+   * is the mistake that hands any page on the internet a logged-in caller's
+   * token.
+   */
+  corsOrigins?: string[];
 }
 
 export function createApp({
@@ -103,6 +117,7 @@ export function createApp({
   logger = new Logger({}, { write: () => {} }),
   supabase,
   requireAuth = false,
+  corsOrigins = [],
 }: AppOptions = {}): Hono<AppEnv> {
   /** The one path to a document. Both endpoints go through it. */
   async function scrapeOnce(
@@ -188,6 +203,19 @@ export function createApp({
   );
 
   const app = new Hono<AppEnv>();
+
+  // Before anything else, so a rejected preflight still gets its headers.
+  if (corsOrigins.length > 0) {
+    app.use(
+      '*',
+      cors({
+        origin: corsOrigins,
+        allowHeaders: ['content-type', 'authorization', 'x-request-id'],
+        exposeHeaders: ['x-cache', 'x-request-id'],
+        credentials: true,
+      }),
+    );
+  }
 
   /**
    * Every request gets an id and a timing line.

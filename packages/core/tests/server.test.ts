@@ -547,3 +547,50 @@ describe('GET /health', () => {
     });
   });
 });
+
+/**
+ * CORS is a rule browsers apply to themselves, so these assert on headers
+ * rather than on anything being blocked — nothing here is a browser. What
+ * matters is that the headers appear only for origins that were named.
+ */
+describe('CORS', () => {
+  const origin = 'http://localhost:5173';
+
+  it('sends nothing at all by default', async () => {
+    const response = await createApp().request('/health', { headers: { origin } });
+
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('answers a preflight for an origin it was given', async () => {
+    const app = createApp({ corsOrigins: [origin] });
+
+    const response = await app.request('/scrape', {
+      method: 'OPTIONS',
+      headers: { origin, 'access-control-request-method': 'POST' },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('access-control-allow-origin')).toBe(origin);
+  });
+
+  // The reason the option is a list and never '*': with credentials allowed, a
+  // wildcard origin hands any page on the internet a logged-in caller's token.
+  it('refuses an origin that is not on the list', async () => {
+    const response = await createApp({ corsOrigins: [origin] }).request('/health', {
+      headers: { origin: 'https://not-ours.test' },
+    });
+
+    expect(response.headers.get('access-control-allow-origin')).not.toBe('https://not-ours.test');
+  });
+
+  // x-cache is the header the demo reads to show whether a page was cached.
+  // Cross-origin, a header the server does not expose is invisible to script.
+  it('exposes the headers a browser client actually reads', async () => {
+    const response = await createApp({ corsOrigins: [origin] }).request('/health', {
+      headers: { origin },
+    });
+
+    expect(response.headers.get('access-control-expose-headers')).toContain('x-cache');
+  });
+});

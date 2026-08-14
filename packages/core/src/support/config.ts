@@ -46,6 +46,23 @@ export const ConfigSchema = z.object({
    * request while you fix the header.
    */
   requireAuth: BooleanFromEnv.optional(),
+
+  /**
+   * Browser origins allowed to call this service, comma-separated.
+   *
+   * Empty means no CORS headers, which is the right default: a service with no
+   * browser client should not advertise itself to one. `apps/web` sets
+   * `CORS_ORIGINS=http://localhost:5173` in development.
+   */
+  corsOrigins: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0),
+    ),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -65,6 +82,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     allowPrivate: env.SCRAPE_ALLOW_PRIVATE,
     supabase,
     requireAuth: env.REQUIRE_AUTH,
+    corsOrigins: env.CORS_ORIGINS,
   });
 
   if (!parsed.success) {

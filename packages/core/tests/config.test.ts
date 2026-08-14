@@ -32,6 +32,19 @@ describe('loadConfig', () => {
     expect(() => loadConfig(env)).toThrow(/invalid configuration/);
   });
 
+  // Empty is the safe default: a service with no browser client should not be
+  // advertising itself to one.
+  it('sends no CORS headers unless origins are named', () => {
+    expect(loadConfig({}).corsOrigins).toEqual([]);
+    expect(loadConfig({ CORS_ORIGINS: '  ' }).corsOrigins).toEqual([]);
+  });
+
+  it('reads a comma-separated origin list, ignoring the spaces around it', () => {
+    expect(
+      loadConfig({ CORS_ORIGINS: 'http://localhost:5173, https://app.test' }).corsOrigins,
+    ).toEqual(['http://localhost:5173', 'https://app.test']);
+  });
+
   it('refuses half-configured supabase', () => {
     expect(() => loadConfig({ SUPABASE_URL: 'https://x.supabase.co' })).toThrow(
       /invalid configuration/,

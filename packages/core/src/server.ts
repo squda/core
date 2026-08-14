@@ -60,6 +60,7 @@ serve({
     requireAuth: config.requireAuth ?? false,
     jobConcurrency: config.jobConcurrency,
     maxQueued: config.maxQueued,
+    corsOrigins: config.corsOrigins,
   }).fetch,
   port: config.port,
 });
@@ -68,6 +69,7 @@ logger.info('listening', {
   port: config.port,
   store: supabase ? 'supabase' : 'memory (nothing survives a restart)',
   auth: config.requireAuth ? 'required' : 'off',
+  cors: config.corsOrigins.length > 0 ? config.corsOrigins.join(', ') : 'off',
 });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
