@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import logoMark from '@/public/logo-mark.png';
 import { ReadDemo } from '@/components/read-demo';
 import { WaitlistForm } from '@/components/waitlist-form';
 import { Separator } from '@/components/ui/separator';
@@ -16,7 +17,13 @@ export default function Home() {
     <div className="mx-auto min-h-screen max-w-6xl px-5 pb-24">
       <header className="flex flex-wrap items-center justify-between gap-4 py-6">
         <div className="flex items-center gap-2.5">
-          <Image src="/logo-mark.png" alt="" width={26} height={26} className="h-6 w-auto" />
+          {/*
+           * Imported rather than referenced by path so Next reads the real
+           * dimensions out of the file: the mark is taller than it is wide, and
+           * a square width/height would squash it. `h-8 w-auto` keeps the ratio
+           * whatever the source is replaced with.
+           */}
+          <Image src={logoMark} alt="" className="h-8 w-auto" priority />
           <span className="text-sm font-semibold tracking-[0.12em] uppercase">Squda</span>
         </div>
         <span className="text-muted-foreground font-mono text-xs">
