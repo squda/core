@@ -63,3 +63,17 @@ export async function fetchPageText(url: string, browser: BrowserMode = 'auto'):
   if (!response.ok) await readError(response);
   return (await response.json()) as PageText;
 }
+
+export type JoinResult = 'joined' | 'already';
+
+/** The waitlist. Its own route rather than the proxy — it is this app's data, not the service's. */
+export async function joinWaitlist(email: string): Promise<JoinResult> {
+  const response = await fetch('/api/waitlist', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) await readError(response);
+  const body = (await response.json()) as { status?: JoinResult };
+  return body.status === 'already' ? 'already' : 'joined';
+}

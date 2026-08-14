@@ -1,100 +1,97 @@
-'use client';
-
-import { useState, type FormEvent } from 'react';
-import type { FormSpec } from '@untitled/schema';
-import { fetchFormSpec, ServiceError, type BrowserMode } from '@/lib/api';
+import Image from 'next/image';
+import { ReadDemo } from '@/components/read-demo';
+import { WaitlistForm } from '@/components/waitlist-form';
+import { Separator } from '@/components/ui/separator';
 
 /**
- * The one page — a template, not a design.
+ * The waitlist page.
  *
- * Everything below the state machine is placeholder markup that exists to prove
- * the pipe works end to end: url in, FormSpec out. Replace the render, keep the
- * state machine. The four states it distinguishes are the four the real UI has
- * to distinguish too, and getting that wrong is the usual reason a redesign
- * turns into a rewrite.
- *
- * What is deliberately already here:
- *  - a client component, because this page is a text field and a button
- *  - `browser` mode as state, because a page that builds itself with JavaScript
- *    needs `always` and the user has to be able to say so
- *  - errors carried as `{ code, message }` from the service rather than a bare
- *    string, because the code is what makes a failure actionable
+ * A server component holding the copy, with the two interactive parts — the
+ * demo and the signup — as islands. The demo is the argument: nobody joins a
+ * waitlist for form filling on a promise, but they might after watching it read
+ * a page they chose themselves.
  */
-
-type Status =
-  | { state: 'idle' }
-  | { state: 'reading' }
-  | { state: 'read'; spec: FormSpec }
-  | { state: 'failed'; code: string; message: string };
-
 export default function Home() {
-  const [url, setUrl] = useState('');
-  const [browser] = useState<BrowserMode>('auto');
-  const [status, setStatus] = useState<Status>({ state: 'idle' });
-
-  async function read(target: string) {
-    setStatus({ state: 'reading' });
-    try {
-      setStatus({ state: 'read', spec: await fetchFormSpec(target, browser) });
-    } catch (error) {
-      const { code, message } =
-        error instanceof ServiceError
-          ? error
-          : { code: 'unreachable', message: 'could not reach the service' };
-      setStatus({ state: 'failed', code, message });
-    }
-  }
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (url.trim()) void read(url.trim());
-  }
-
-  /* ─────────────────────────────────────────────────────────────────
-   * Everything from here down is scaffolding. Replace it with the
-   * design; the state above is what it plugs into.
-   * ───────────────────────────────────────────────────────────────── */
-
   return (
-    <main style={{ maxWidth: '48rem', margin: '0 auto', padding: '3rem 1.5rem' }}>
-      <h1>untitled</h1>
-      <p>Paste a url and see every form field on the page.</p>
+    <div className="mx-auto min-h-screen max-w-6xl px-5 pb-24">
+      <header className="flex flex-wrap items-center justify-between gap-4 py-6">
+        <div className="flex items-center gap-2.5">
+          <Image src="/logo-mark.png" alt="" width={26} height={26} className="h-6 w-auto" />
+          <span className="text-sm font-semibold tracking-[0.12em] uppercase">Squda</span>
+        </div>
+        <span className="text-muted-foreground font-mono text-xs">
+          reading works today · filling does not
+        </span>
+      </header>
 
-      <form onSubmit={submit}>
-        <label htmlFor="url">Page url</label>
-        <br />
-        <input
-          id="url"
-          type="url"
-          placeholder="https://…"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          required
-          style={{ width: '24rem', maxWidth: '100%' }}
-        />
-        <button type="submit" disabled={status.state === 'reading'}>
-          {status.state === 'reading' ? 'Reading…' : 'Read the page'}
-        </button>
-      </form>
+      <Separator />
 
-      {status.state === 'failed' && (
-        <p role="alert">
-          {status.message} ({status.code})
-        </p>
-      )}
-
-      {status.state === 'read' && (
-        <section>
-          <p>
-            {status.spec.forms.length} form(s) ·{' '}
-            {status.spec.forms.reduce((total, form) => total + form.fields.length, 0)} field(s) ·
-            fetched with {status.spec.fetchedWith}
+      <section className="grid items-end gap-14 py-16 lg:grid-cols-[1.35fr_1fr]">
+        <div>
+          <h1 className="text-4xl leading-[0.98] font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+            Every form asks for the same things. Nothing agrees what to call them.
+          </h1>
+          <p className="text-muted-foreground mt-6 max-w-[46ch] text-lg text-pretty">
+            Paste a url below. You get the page as clean markdown, and every box on it — what it is
+            called, what type it is, and how sure we are that we know its name.
           </p>
-          <pre style={{ overflow: 'auto', fontSize: '0.75rem' }}>
-            {JSON.stringify(status.spec, null, 2)}
-          </pre>
-        </section>
-      )}
-    </main>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-3 font-mono text-[11px] tracking-widest uppercase">
+            Join the waitlist
+          </p>
+          <WaitlistForm />
+          <p className="text-muted-foreground mt-3 text-sm">
+            One email when filling works. Nothing else.
+          </p>
+        </div>
+      </section>
+
+      <Separator />
+
+      <ReadDemo />
+
+      <Separator className="mt-20" />
+
+      <section className="grid gap-10 py-16 sm:grid-cols-2">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">What&rsquo;s coming</h2>
+          <p className="text-muted-foreground mt-4 max-w-[56ch] text-pretty">
+            Filling. You answer the handful of facts every form asks for once, and the next form
+            gets them typed in for you — shown to you filled in, and never submitted until you say
+            so. The waitlist is how you hear when it ships.
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-3 font-mono text-[11px] tracking-widest uppercase">
+            Same fact, three pages
+          </p>
+          <div className="border-border divide-border divide-y border">
+            {[
+              { label: 'Certificate/License Number', source: 'label-for' },
+              { label: 'License #', source: 'placeholder' },
+              { label: 'no name on the page', source: '(none)', faded: true },
+            ].map((row) => (
+              <div key={row.source} className="flex items-baseline justify-between gap-4 p-3.5">
+                <span className={row.faded ? 'text-muted-foreground italic' : ''}>{row.label}</span>
+                <span className="text-muted-foreground font-mono text-[11px] whitespace-nowrap">
+                  {row.source}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-muted-foreground mt-3 text-sm">
+            One fact. Three pages. Three names — and one page that never says.
+          </p>
+        </div>
+      </section>
+
+      <Separator />
+
+      <footer className="text-muted-foreground flex flex-wrap justify-between gap-6 pt-10 font-mono text-xs">
+        <span>Squda</span>
+        <span>reading works today · filling does not</span>
+      </footer>
+    </div>
   );
 }
