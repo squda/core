@@ -1,7 +1,8 @@
 # Plan — URL → Scraped Content → Automated Form Filling
 
 **Stack:** TypeScript / Node throughout (pnpm, `tsx`, Vitest, Zod).
-**Fill surface:** headless browser automation (Playwright).
+**Fill surface:** browser automation — Playwright server-side for public pages and every test;
+the user's own browser, via an extension, for anything behind a login. See the Phase 7 decision.
 **Purpose:** a production system, built for learning. Every phase is chosen partly for what it
 forces you to confront — but the target is something deployable, not a demo, which is why Phase 9
 is deployment rather than a footnote.
@@ -29,6 +30,69 @@ No timelines. Phases are sized so each one **ends in something you can run**. Do
 ```
 
 Five moving parts. Part A is the whole first half of the project; Part B is the second. The **FormSpec** in the middle is the contract between them — get it wrong and the two halves won't meet.
+
+---
+
+## Where the code lives
+
+> **Decided 2026-08-15.** One repository, four packages. The question that forced it was whether
+> the client should be its own repo — with a mobile app maybe coming later.
+>
+> ```
+> packages/schema/   FormSpec, and later Profile and FillPlan. Zod and types, nothing else.
+> packages/core/     the scraper, the fetch strategies, the service. Was the whole repo.
+> apps/web/          the demo, and later the review UI of Phase 8.
+> apps/extension/    not built yet. See the Phase 7 decision.
+> ```
+>
+> **Why not two repos:** the valuable thing here is the contract, not either half. Split the repo
+> and `FormSpec` either gets duplicated — where it drifts silently, which the Phase 4 note above
+> explicitly warns against — or gets published as a private package, so every added field becomes
+> a version bump and an install. Repos should split when deploy cadence, CI or teams diverge.
+> Working solo, none of those do.
+>
+> **Why `schema` is its own package rather than a folder in `core`:** so `apps/web` can import
+> `FormSpec` without being able to import Playwright, jsdom, or a database driver. A dependency
+> you cannot express is a dependency you cannot accidentally acquire. Its rule: **zero
+> dependencies except zod.**
+>
+> **No mobile app.** The fill surface is a browser; a phone cannot run one. The only part of this
+> that suits a phone is approving a FillPlan someone else prepared — a notification and one
+> screen, over the same HTTP API. If that is ever worth building it goes in `apps/mobile/` beside
+> the others, still not a second repo.
+
+---
+
+## What we are actually building, and for whom
+
+> ### Decision — resolved 2026-08-15
+>
+> **Build the engine general. Choose the market from usage, not from a guess.**
+>
+> The alternative considered was picking a vertical up front — the strongest candidate being
+> re-keying the same facts into many regulated portals (clinician licensing and credentialing,
+> insurance submissions), because that is where the event log, the confidence score, and
+> dry-run-before-submit stop being engineering taste and become the customer's compliance
+> requirement.
+>
+> **Why we are not doing that yet:** a vertical is only reachable if you can reach it. With no
+> contacts in any of those industries, "find five staffing agencies" is a harder problem than
+> building the entire product, and it would be attempted with no working demo in hand.
+>
+> **What general-first actually means here.** Not "fill any form adequately" — that product is
+> Magical, Fillify, and half a dozen extensions, and Chrome shipped agentic browsing in 2026, so
+> it is a bad place to stand. It means: the engine is domain-neutral, the first market is
+> whichever one the numbers point at, and until they point somewhere the tool is free and wide.
+> Job applications are the obvious front door — high volume, people already search for it, and
+> every application submitted feeds the matcher a real `observedLabel` from a real form. It is a
+> weak business and an excellent sensor. Treat it as the sensor.
+>
+> **The condition that makes this work:** it is instrumented from the day it ships. A general
+> tool nobody measures teaches you nothing. See _What we measure_ before Phase 9.
+>
+> **The checkpoint, written down now while it is easy to be honest.** Four months after it is in
+> anyone's hands, if no group of users has come back week after week, that is an answer too: the
+> tool is a trick rather than a need. Change direction then rather than building more of it.
 
 ---
 
@@ -206,6 +270,56 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 ---
 
+## Phase 4½ — The demo (`apps/web`)
+
+**Built 2026-08-15, out of order and deliberately small.** The plan puts the first UI in Phase 8,
+and that is still where the _review_ screen belongs. This is a different thing: a page that shows
+what already works, so there is something to point at before Part B exists.
+
+**What it is:** one page. Paste a url, it calls `GET /form-spec`, and it reports every box on the
+page — what the box is called, **where that name came from**, and whether we'd trust it.
+
+**What it deliberately is not:** a profile editor, a fill screen, or anything that pretends Part B
+is finished. It fills nothing.
+
+> **Rebuilt on Next.js the same day.** It was Vite + React for an afternoon; the App Router replaced
+> it before any design was committed to, which is the cheapest possible moment for that change. The
+> reasons that survive the switch:
+>
+> - **A server the client owns.** `app/api/[...path]/route.ts` forwards everything under `/api` to
+>   the service, so the browser only ever speaks to one origin. That removes CORS from the deployed
+>   story rather than configuring it, and keeps `SCRAPE_SERVICE_URL` on the server instead of baked
+>   into a bundle — which starts mattering the moment these calls carry a token.
+> - **Room for Phase 8.** The review UI needs sessions, a profile, and server-rendered pages behind
+>   a login. That is the App Router's job description, and retrofitting it onto a static SPA later
+>   would be the rewrite this switch avoids.
+>
+> The page itself is currently an unstyled template — a form, a state machine, and a JSON dump —
+> awaiting a design. What the template already fixes is the shape: **the four states are idle,
+> reading, read, failed**, and errors carry the service's `{ code, message }` rather than a string.
+> Getting those wrong is the usual reason a redesign becomes a rewrite.
+
+**The one design decision worth keeping when the design lands.** Build the page around
+`labelSource`, not around the labels. Showing that a field was named by `<label for>` versus scraped
+off nearby text shows the reader the system's own uncertainty — the honest answer to "what can you
+fill?", and the thing no autofill extension displays. It also puts the number that matters on
+screen: of the boxes a person fills, how many can we name.
+
+Two supporting changes came with it and both outlive the framework:
+
+- **CORS on the service**, as an explicit origin list (`CORS_ORIGINS`), empty by default. Not `*`:
+  the moment auth is required, a wildcard origin with credentials hands any page on the internet a
+  caller's token. The Next proxy means the web app no longer needs it — it stays for any other
+  browser client, and the extension will be one.
+- `form-spec.ts` moved to `packages/schema`, and the client parses responses with the same
+  `FormSpecSchema` the server validated them with. That is the monorepo decision earning itself
+  back on the first day: the client cannot drift from the contract, because it imports it.
+
+**Done when:** you can hand someone a url and they understand what this does without you talking. —
+**Plumbing done 2026-08-15; waiting on a design.**
+
+---
+
 # PART B — Form Filling
 
 ## Phase 5 — The profile store ("memory")
@@ -324,11 +438,54 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 
 ## Phase 7 — The filler: execute the FillPlan
 
-**Goal:** Playwright opens the page and fills the form for real.
+> ### Decision — resolved 2026-08-15: where the filling happens
+>
+> **The server builds the plan. The user's own browser executes it.**
+>
+> This phase originally assumed server-side Playwright throughout. That works until the form is
+> behind a login, which — for anything worth automating repeatedly — it always is. The obvious fix
+> is to store the user's credentials and log in for them, "like a password manager". It is the
+> wrong fix, for three reasons that are each independently fatal:
+>
+> 1. **A password manager fills a login box on the user's machine; it never logs in as them from
+>    somewhere else.** Holding thousands of live third-party credentials on a server makes this a
+>    security product first and a form filler second, and one breach ends it.
+> 2. **Two-factor auth defeats it anyway.** A stored password does not get past a code sent to a
+>    phone, so the hard case stays hard and the risk was taken for nothing.
+> 3. **It is against most sites' terms**, and the consequence lands on the _user's_ account, not
+>    ours. Note where Phase 10 lands on the same question: logged-out scraping is defensible,
+>    logged-in automation against terms the user accepted is not.
+>
+> **What the split buys.** In the user's browser the session already exists, so there is nothing to
+> store, no 2FA wall, and the traffic looks like what it is — a person on their own machine, which
+> is also the entire Phase 10 problem not happening.
+>
+> **What it costs:** the browser has to be open. That is a real limitation and it is worth being
+> honest that it rules out "fills your forms overnight". It is survivable because this product
+> requires a human at the submit step _by design_ — dry-run is the default and always will be, so
+> the person is present at the only moment that matters anyway. What must run unattended is the
+> preparation: watching for new forms, scraping public pages, matching, and notifying. All of that
+> is server work and none of it needs to be anyone in particular.
+>
+> **So the shape is:** `apps/extension/` is a hand the service directs. Server says "this url, this
+> plan"; the extension fills, verifies, screenshots, and reports back. The `FillPlan` type in
+> `packages/schema` is the wire format between them, exactly as `FormSpec` is between the scraper
+> and the matcher.
+>
+> **Server-side Playwright does not go away.** It stays for public pages, for the fixtures, for the
+> browser fetch strategy, and — later — for business customers who deliberately provision an
+> account for us to use, which is a different thing from holding a stranger's password.
+>
+> **Consequence for the plan:** "filling behind logins" moves off the _Deliberately not in this
+> plan_ list and into this phase. It is now a requirement rather than a stop condition. CAPTCHAs
+> and payment steps stay hard stops.
+
+**Goal:** the FillPlan is executed against a real page — in a real browser the user is already
+signed into — and nothing is submitted.
 
 **Steps**
 
-1. `fillForm(url, plan)`: open the page, locate each field by its selector, set the value by field type — `fill()` for text, `selectOption()` for selects, `check()` for checkboxes, `setInputFiles()` for uploads.
+1. `fillForm(url, plan)`: open the page, locate each field by its selector, set the value by field type — `fill()` for text, `selectOption()` for selects, `check()` for checkboxes, `setInputFiles()` for uploads. Write it against Playwright first, because that is testable against local fixtures; the extension implements the same operations against the same `FillPlan`, which is what keeps them honest.
 2. **Dry-run mode first, and make it the default.** Fill everything, screenshot the result, close without submitting. Only an explicit `--submit` clicks the button.
 3. Verify after writing: read each value back and confirm it stuck. `fill()` dispatches an `input` event and works with React most of the time — but masked inputs, autocomplete widgets, and rich text editors will drop it. When a value doesn't stick, fall back to character-by-character typing (`locator.pressSequentially()`), and if that fails too, dispatch the events by hand.
 4. Handle what real pages do: fields that appear only after another is filled, multi-step wizards, validation errors surfacing on blur.
@@ -363,7 +520,7 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 **Steps**
 
 1. `POST /autofill { url, dryRun }` → scrape → FormSpec → match → fill → report.
-2. A minimal review UI: show the FillPlan, let the user correct a value, then execute. (Vite + React, or plain HTML — this doesn't need to be nice.) Rows whose field is `sensitive` are highlighted — that flag marks rather than blocks, so this screen is where it earns its keep.
+2. A minimal review UI: show the FillPlan, let the user correct a value, then execute. Rows whose field is `sensitive` are highlighted — that flag marks rather than blocks, so this screen is where it earns its keep. **This grows out of `apps/web`, which already exists** (Phase 4½) and already renders a form's fields with their provenance; a FillPlan row is that same row with a value and a confidence on it. Ask for missing values here, in our own screen, rather than sending someone back to the ugly original form — that is most of what makes this feel like a product rather than a script.
 3. Corrections write back to the profile _and_ to the alias table, so the same label matches next time. This is the first place the system genuinely learns.
 4. End-to-end test against a form you host locally, so it can't break or rate-limit you.
 
@@ -379,6 +536,39 @@ Integration bugs live in the gaps between modules, and working alone you built e
 - Human-in-the-loop design — where confirmation belongs in an automated pipeline.
 - Feedback loops: a correction that improves future behaviour, which is the cheapest form of "learning" a system can have.
 - End-to-end testing against a controlled fixture rather than the live internet.
+
+---
+
+## What we measure
+
+**This is not an analytics section. It is the entire market strategy**, and without it the decision
+to build general first is just a decision not to choose. Build this alongside Phase 8, before the
+thing is in anyone's hands — a month of unrecorded usage cannot be recovered, in exactly the way a
+month of overwritten profile rows cannot.
+
+Per fill attempt, record:
+
+| what                                               | why it is the one to record                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| the site's domain and its kind                     | which industry actually showed up, as opposed to which one we imagined                                 |
+| fields matched automatically vs. corrected by hand | a domain with a high correction rate is either a bad fit or an underserved one — go and find out which |
+| **did this user come back the following week**     | the only number that separates a business from a demo                                                  |
+| forms per user per month                           | separates "tried it once" from "depends on it"                                                         |
+| which `labelSource` the matcher had to work from   | feeds straight back into Phase 6 — it tells you whether the semantic layer is earning its cost         |
+
+The question all of it exists to answer, asked at the checkpoint and not before:
+
+> **Which kind of site do people come back to, week after week?**
+
+Then talk to the twenty users at the top of that list. The point of shipping something free and
+general is that by the time this question is worth asking, the people who can answer it are already
+using the thing — which is the version of "market research" available to someone with no contacts
+in any particular industry.
+
+**Handle it as personal data from the first line.** These are records of which sites a named person
+fills forms on. Aggregate where aggregate will do, keep raw events short-lived, and write down what
+you'd hand over if someone asked for everything you hold on them — the same tension the Phase 5
+append-only log already creates with deletion, arriving a second time.
 
 ---
 
@@ -495,9 +685,15 @@ Rate limits and GDPR still apply on every rung.
 
 ## Deliberately not in this plan
 
-Note these down, resist them until Phase 8 ships: authentication and multi-user support, a browser extension, CAPTCHA handling, filling behind logins, resume/document parsing, a real job queue (BullMQ).
+Note these down, resist them until Phase 8 ships: CAPTCHA handling, resume/document parsing, a real job queue (BullMQ).
 
 ~~rate-limit/proxy infrastructure~~ — moved _into_ the plan as **Phase 9**, after Phase 8 ships.
+
+~~authentication and multi-user support~~ — arrived early and unplanned, when Supabase did (2026-08-14). It is in.
+
+~~a browser extension~~ and ~~filling behind logins~~ — both moved _into_ **Phase 7** by the 2026-08-15 decision above. They turned out to be the same item: the extension is how you fill behind a login without holding anyone's password. Note what this list got wrong, because it is a useful kind of wrong — these were resisted as scope, and one of them was actually the answer to a problem the plan had not yet met.
+
+**Storing users' passwords for third-party sites stays out, permanently.** Not "until later" — this is the one item on this list with a reason that does not expire. Sessions in the user's own browser, or an account a business deliberately provisions for us. Never a stranger's password on our server.
 
 ~~embedding-based semantic matching~~ — pulled _into_ scope by the Phase 5 decision above, as a Phase 6 matching layer. It is the one thing we deliberately added to this plan; everything else on this list stays out.
 
