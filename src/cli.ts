@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { FetchError, HttpStatusError, type FetchErrorKind } from './core/errors.js';
 import { BlockedAddressError, InvalidUrlError } from './core/errors.js';
 import { scrape } from './core/scrape.js';
+import { assertSupportedNode } from './support/runtime.js';
 
 /**
  * Phase 1, step 7 (the --format half) — the CLI.
@@ -202,5 +203,6 @@ const invokedDirectly =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (invokedDirectly) {
+  assertSupportedNode();
   process.exitCode = await run(process.argv.slice(2));
 }

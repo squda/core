@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { assertSupportedNode } from './support/runtime.js';
 import { BrowserPool } from './fetching/pool.js';
 import { MemoryCache } from './service/cache.js';
 import { createApp } from './service/app.js';
@@ -17,6 +18,9 @@ import type { ScrapeCache } from './service/cache.js';
  * `service/app.ts` free of processes, files and ports, and testable without
  * any of them.
  */
+
+// Before anything imports supabase-js, which fails obscurely on Node 20.
+assertSupportedNode();
 
 const config = loadConfig();
 const logger = new Logger({ service: 'scrape' }, { level: config.logLevel });

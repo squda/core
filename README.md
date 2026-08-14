@@ -96,4 +96,9 @@ pnpm format
 Tests never hit the live network. `fixtures/` holds six real pages captured with
 `npx tsx scripts/grab-fixture.ts <url> <name>`; see [fixtures/README.md](./fixtures/README.md).
 
-Requires Node 22+, pnpm, and `npx playwright install chromium` for the browser path.
+Requires Node 22+, pnpm, and `npx playwright install chromium` for the browser path. Both entry
+points refuse to start on anything older and say so in one line — `.nvmrc` pins the version, so
+`nvm use` in the project directory is enough.
+
+With Supabase configured, auth is required by default. For local poking, run
+`REQUIRE_AUTH=0 pnpm serve`.
