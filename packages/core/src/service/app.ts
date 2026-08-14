@@ -10,11 +10,38 @@ import { z } from 'zod';
 import { BlockedAddressError, FetchError, HttpStatusError } from '../core/errors.js';
 import { Logger } from '../support/log.js';
 import { JobQueue, QueueFullError, type JobError } from './queue.js';
-import { scrape as defaultScrape } from '../core/scrape.js';
+import { scrape as defaultScrape, scrapeHtml } from '../core/scrape.js';
 import { normaliseUrl } from '../core/url.js';
 import { extractForms } from '../core/forms.js';
 import { InvalidUrlError } from '../core/errors.js';
 import type { ScrapedDocument } from '../core/types.js';
+import { RateLimiter } from '../support/rate-limit.js';
+
+/**
+ * How much Markdown the open demo endpoint will hand back.
+ *
+ * A Wikipedia article is 50,000 characters. Nobody reads that in a preview
+ * pane, and serving it to an unauthenticated caller on repeat is the cost this
+ * endpoint exists to bound.
+ */
+const DEMO_MARKDOWN_LIMIT = 20_000;
+
+/**
+ * Who is asking, for rate-limiting purposes.
+ *
+ * `x-forwarded-for` is trusted here because this runs behind a proxy that sets
+ * it. Directly exposed it is a header a caller writes themselves, and the limit
+ * becomes advisory — which is the trade every IP-based limiter makes, and the
+ * reason `callerKey` is an option rather than a constant.
+ *
+ * Everyone we cannot identify shares the `unknown` bucket. That is deliberately
+ * strict: an unidentifiable flood is the one most worth slowing down.
+ */
+function defaultCallerKey(context: Context): string {
+  const forwarded = context.req.header('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown';
+  return context.req.header('x-real-ip') ?? 'unknown';
+}
 
 /**
  * Phase 3 — the scraper over HTTP: routing and translation, nothing else.
@@ -105,6 +132,23 @@ export interface AppOptions {
    * token.
    */
   corsOrigins?: string[];
+  /**
+   * Reads allowed per caller per window on the open `/demo` endpoint.
+   *
+   * Low on purpose. A visitor trying four example pages and one of their own
+   * is the behaviour being paid for; anything past that is someone using the
+   * waitlist page as an API.
+   */
+  demoRateLimit?: number;
+  demoWindowMs?: number;
+  /**
+   * How a caller is identified for that limit. Defaults to the client address,
+   * read from `x-forwarded-for` when a proxy set one.
+   *
+   * Injectable because in a test there is no socket, and because whoever
+   * deploys this knows which header their proxy is honest about.
+   */
+  callerKey?: (context: Context) => string;
 }
 
 export function createApp({
@@ -118,7 +162,11 @@ export function createApp({
   supabase,
   requireAuth = false,
   corsOrigins = [],
+  demoRateLimit = 10,
+  demoWindowMs = 10 * 60 * 1000,
+  callerKey = defaultCallerKey,
 }: AppOptions = {}): Hono<AppEnv> {
+  const demoLimiter = new RateLimiter({ limit: demoRateLimit, windowMs: demoWindowMs });
   /** The one path to a document. Both endpoints go through it. */
   async function scrapeOnce(
     url: string,
@@ -240,8 +288,18 @@ export function createApp({
     });
   });
 
-  // Auth guards the endpoints that cost something. /health stays open: a load
-  // balancer has no token, and the answer reveals nothing.
+  /**
+   * Auth guards every endpoint that costs something.
+   *
+   * `/form-spec` joined this list on 2026-08-15. It had been open because it
+   * arrived in Phase 4 alongside a demo that needed it, but it walks the same
+   * expensive path as `/scrape` — same fetch, same browser escalation — so
+   * leaving it open left the whole service reachable through the cheaper door.
+   *
+   * `/health` stays open: a load balancer carries no token and the answer
+   * reveals nothing. `/demo` stays open on purpose and pays for it with a rate
+   * limit instead.
+   */
   if (supabase) {
     const guard = authenticate({
       client: supabase,
@@ -249,6 +307,7 @@ export function createApp({
       onError: (error) => logger.error('auth check failed', { error: String(error) }),
     });
     app.use('/scrape', guard);
+    app.use('/form-spec', guard);
     app.use('/jobs', guard);
     app.use('/jobs/*', guard);
   }
@@ -306,6 +365,92 @@ export function createApp({
         fields: spec.forms.reduce((total, form) => total + form.fields.length, 0),
       });
       return context.json(spec);
+    } catch (error) {
+      return respondToFailure(context, error);
+    }
+  });
+
+  /**
+   * The one open door — for the public waitlist page, and nothing else.
+   *
+   * Added 2026-08-15, when `/form-spec` was closed. The page has to work for a
+   * visitor who has no account, and the two honest ways to allow that are to
+   * hand the browser a token (which is then not a secret) or to open one narrow
+   * path and cap it. This is the second.
+   *
+   * What makes it narrow rather than just "the same thing without auth":
+   *
+   *  - **One call, both halves.** The demo needs the text and the fields; two
+   *    endpoints would mean two rate-limit units for one visitor action, and a
+   *    page that half-works when the second one is refused.
+   *  - **No `browser=always`.** Auto still escalates when a page is genuinely
+   *    empty, so an SPA works, but nobody can force the expensive path on a
+   *    page that never needed it.
+   *  - **Rate limited per caller**, which is the whole point.
+   *  - **Markdown truncated.** A visitor is reading a preview, not exporting a
+   *    corpus, and it caps what a single request can cost to serve.
+   */
+  app.get('/demo', async (context) => {
+    const url = context.req.query('url');
+    if (!url) {
+      return context.json({ error: { code: 'invalid-request', message: 'url is required' } }, 400);
+    }
+
+    const browser = context.req.query('browser') ?? 'auto';
+    if (browser !== 'auto' && browser !== 'never') {
+      return context.json(
+        {
+          error: {
+            code: 'invalid-request',
+            message: 'browser must be auto or never on this endpoint',
+          },
+        },
+        400,
+      );
+    }
+
+    const decision = demoLimiter.check(callerKey(context));
+    context.header('x-ratelimit-remaining', String(decision.remaining));
+    if (!decision.allowed) {
+      context.header('retry-after', String(decision.retryAfter));
+      log(context).info('demo rate limited', { url, retryAfter: decision.retryAfter });
+      return context.json(
+        {
+          error: {
+            code: 'rate-limited',
+            message: `That is enough for now — try another page in ${decision.retryAfter} seconds.`,
+          },
+        },
+        429,
+      );
+    }
+
+    try {
+      // One fetch, read twice. The walker needs the original HTML, which
+      // extraction throws away, so this cannot go through scrapeOnce's cache —
+      // but fetchDocument sits behind the same SSRF guard and browser pool.
+      const document = await fetchDocument(url, browser);
+      const spec = extractForms(document);
+      const scraped = scrapeHtml(document);
+
+      log(context).info('demo', {
+        url,
+        fetchedWith: document.fetchedWith,
+        forms: spec.forms.length,
+        fields: spec.forms.reduce((total, form) => total + form.fields.length, 0),
+      });
+
+      return context.json({
+        spec,
+        text: {
+          title: scraped.title,
+          description: scraped.description,
+          fetchedWith: scraped.fetchedWith,
+          markdown: scraped.markdown.slice(0, DEMO_MARKDOWN_LIMIT),
+          truncated: scraped.markdown.length > DEMO_MARKDOWN_LIMIT,
+          characters: scraped.markdown.length,
+        },
+      });
     } catch (error) {
       return respondToFailure(context, error);
     }

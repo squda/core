@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Field, FormSpec } from '@untitled/schema';
-import { fetchFormSpec, fetchPageText, ServiceError, type PageText } from '@/lib/api';
+import { fetchDemo, ServiceError, type PageText } from '@/lib/api';
 import {
   isFillable,
   SOURCE_LABEL,
@@ -32,7 +32,7 @@ const EXAMPLES = [
 type Status =
   | { state: 'idle' }
   | { state: 'reading' }
-  | { state: 'read'; spec: FormSpec; text: PageText | null; textError: string | null; ms: number }
+  | { state: 'read'; spec: FormSpec; text: PageText; ms: number }
   | { state: 'failed'; code: string; message: string; url: string };
 
 export function ReadDemo() {
@@ -44,23 +44,10 @@ export function ReadDemo() {
     setStatus({ state: 'reading' });
     const started = Date.now();
 
-    // The forms are the point, so a failure there fails the read. The prose is
-    // fetched alongside it and allowed to fail on its own, because /scrape sits
-    // behind auth whenever Supabase is configured and /form-spec does not.
-    const prose = fetchPageText(target).then(
-      (text) => ({ text, error: null }),
-      (error: unknown) => ({
-        text: null,
-        error: error instanceof ServiceError ? error.message : 'could not read the text',
-      }),
-    );
-
     try {
-      const spec = await fetchFormSpec(target);
-      const { text, error } = await prose;
-      setStatus({ state: 'read', spec, text, textError: error, ms: Date.now() - started });
+      const { spec, text } = await fetchDemo(target);
+      setStatus({ state: 'read', spec, text, ms: Date.now() - started });
     } catch (error) {
-      void prose;
       const { code, message } =
         error instanceof ServiceError
           ? error
@@ -213,7 +200,7 @@ function Failed({ status }: { status: Extract<Status, { state: 'failed' }> }) {
 }
 
 function Result({ status }: { status: Extract<Status, { state: 'read' }> }) {
-  const { spec, text, textError, ms } = status;
+  const { spec, text, ms } = status;
   const everyField = spec.forms.flatMap((form) => form.fields);
   const fields = everyField.filter(isFillable);
   const counts = tally(fields);
@@ -254,7 +241,7 @@ function Result({ status }: { status: Extract<Status, { state: 'read' }> }) {
         </TabsContent>
 
         <TabsContent value="text">
-          <TextPanel text={text} error={textError} />
+          <TextPanel text={text} />
         </TabsContent>
       </Tabs>
     </div>
@@ -377,15 +364,14 @@ function FieldRow({ field, highlighted }: { field: Field; highlighted: boolean }
   );
 }
 
-function TextPanel({ text, error }: { text: PageText | null; error: string | null }) {
-  if (error || !text) {
+function TextPanel({ text }: { text: PageText }) {
+  if (!text.markdown) {
     return (
-      <div className="border-border bg-card border p-6">
-        <p className="text-muted-foreground max-w-prose text-sm">
-          {error ?? 'No text for this page.'}
-        </p>
+      <div className="border-border bg-card border p-10">
+        <p className="font-medium">No readable text on this page</p>
         <p className="text-muted-foreground mt-2 max-w-prose text-sm">
-          This endpoint needs a token when Supabase is configured. The fields above do not.
+          There was a page, but nothing on it that reads as an article — which is normal for a form,
+          a dashboard or an app shell.
         </p>
       </div>
     );
@@ -403,7 +389,10 @@ function TextPanel({ text, error }: { text: PageText | null; error: string | nul
         {text.markdown}
       </pre>
       <p className="border-border text-muted-foreground border-t p-4 font-mono text-xs">
-        {text.markdown.length.toLocaleString()} characters · fetched with {text.fetchedWith}
+        {text.characters.toLocaleString()} characters · fetched with {text.fetchedWith}
+        {/* Said outright: a preview that quietly stops is worse than one that admits it. */}
+        {text.truncated &&
+          ` · showing the first ${text.markdown.length.toLocaleString()} on the demo`}
       </p>
     </div>
   );

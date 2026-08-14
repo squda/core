@@ -3,6 +3,7 @@ import { bearerToken } from '../src/service/auth.js';
 import { createApp } from '../src/service/app.js';
 import { scrapeHtml } from '../src/core/scrape.js';
 import { loadFixture } from './fixtures.js';
+import { fakeResponse, stubFetch } from './helpers.js';
 import type { SupabaseClient } from '../src/service/supabase.js';
 
 /**
@@ -136,5 +137,42 @@ describe('with no supabase configured', () => {
     const app = createApp({ scrape: scrapes() });
 
     expect((await post(app)).status).toBe(200);
+  });
+});
+
+/**
+ * `/form-spec` was open until 2026-08-15. It walks the same expensive path as
+ * `/scrape` — same fetch, same browser escalation — so leaving it open left the
+ * service reachable through the cheaper door.
+ */
+describe('the doors auth covers', () => {
+  const guarded = () =>
+    createApp({ scrape: scrapes(), supabase: fakeSupabase(() => user), requireAuth: true });
+
+  it('refuses an anonymous form-spec request', async () => {
+    const response = await guarded().request('/form-spec?url=https://a.test/');
+
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe('unauthorised');
+  });
+
+  it('lets a real token through to form-spec', async () => {
+    stubFetch((url) => fakeResponse(url, { body: loadFixture('form-login-minimal').html }));
+
+    const response = await guarded().request('/form-spec?url=https://the-internet.test/login', {
+      headers: { authorization: 'Bearer good' },
+    });
+
+    expect(response.status).toBe(200);
+  });
+
+  // /health has no token to offer a load balancer, and /demo pays for being
+  // open with a rate limit instead. Both must stay reachable.
+  it.each(['/health', '/demo?url=https://a.test/'])('leaves %s open', async (path) => {
+    stubFetch((url) => fakeResponse(url, { body: loadFixture('form-login-minimal').html }));
+
+    const response = await guarded().request(path);
+
+    expect(response.status).not.toBe(401);
   });
 });

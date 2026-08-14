@@ -38,30 +38,40 @@ async function readError(response: Response): Promise<never> {
   throw new ServiceError(code, message, response.status);
 }
 
-/** Every form on a page, with each field's label and where that label came from. */
-export async function fetchFormSpec(url: string, browser: BrowserMode = 'auto'): Promise<FormSpec> {
-  const query = new URLSearchParams({ url, browser });
-  const response = await fetch(`/api/form-spec?${query}`);
-  if (!response.ok) await readError(response);
-  return FormSpecSchema.parse(await response.json());
-}
-
 export interface PageText {
   title: string | null;
   description: string | null;
-  markdown: string;
   fetchedWith: string;
+  markdown: string;
+  /** True when the service cut the markdown short. Say so rather than implying that was all of it. */
+  truncated: boolean;
+  /** The real length, before truncation. */
+  characters: number;
 }
 
-/** The same page as prose. Behind auth whenever Supabase is configured. */
-export async function fetchPageText(url: string, browser: BrowserMode = 'auto'): Promise<PageText> {
-  const response = await fetch('/api/scrape', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ url, browser }),
-  });
+export interface DemoRead {
+  spec: FormSpec;
+  text: PageText;
+}
+
+/**
+ * The demo endpoint: both halves of a page in one call.
+ *
+ * `/scrape` and `/form-spec` both require a token, and a public waitlist page
+ * has no one to get a token from. `/demo` is the one open door — rate limited,
+ * markdown truncated, and unable to be forced down the browser path — so a
+ * visitor can try it without an account and without it becoming a free API.
+ *
+ * One call rather than two on purpose: two would spend two of the visitor's
+ * rate-limit allowance on one click, and half-work when the second is refused.
+ */
+export async function fetchDemo(url: string, browser: BrowserMode = 'auto'): Promise<DemoRead> {
+  const query = new URLSearchParams({ url, browser });
+  const response = await fetch(`/api/demo?${query}`);
   if (!response.ok) await readError(response);
-  return (await response.json()) as PageText;
+
+  const body = (await response.json()) as { spec: unknown; text: PageText };
+  return { spec: FormSpecSchema.parse(body.spec), text: body.text };
 }
 
 export type JoinResult = 'joined' | 'already';

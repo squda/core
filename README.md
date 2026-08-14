@@ -59,6 +59,7 @@ scrape service listening on http://localhost:3000 (cache: .cache/scrape.db)
 | `POST /jobs`          | same body → `202` + a job id, for pages that need a browser                                   |
 | `GET /jobs/:id`       | `queued` / `running` / `done` / `failed`, with the document or error                          |
 | `GET /form-spec?url=` | the same page read for structure: every form, every field, every label and where it came from |
+| `GET /demo?url=`      | both halves in one call, for the public page. No token; rate limited instead                  |
 | `GET /health`         | browser pool and job counts                                                                   |
 
 Responses carry `x-cache: hit|miss`. Env vars: `PORT`, `CACHE_PATH`, `BROWSER_CONCURRENCY`,
@@ -74,14 +75,16 @@ requests behind a concurrency cap.
 $ pnpm dev          # service on :3000, demo on :5173
 ```
 
-Next.js (App Router). Paste a url and it reports every box on the page: what it's called, where
-that name came from, its type, and whether it's marked sensitive.
+Next.js App Router, Tailwind and shadcn. A waitlist page whose argument is the demo: paste a url and
+it reports both halves of what the scraper does — the page as Markdown, and every box on it with
+what it's called, where that name came from, and whether it's marked sensitive.
 
 The browser never talks to the service directly — `app/api/[...path]/route.ts` forwards everything
 under `/api` to it. So there is no CORS to configure, and `SCRAPE_SERVICE_URL` stays on the server
-instead of being baked into the bundle.
+instead of being baked into the bundle. The demo reads through `/demo`, the one endpoint that takes
+no token.
 
-It fills nothing, and the page is currently an unstyled template. That's Phase 7 and the design.
+It fills nothing. That's Phase 7.
 
 ## How it fits together
 
@@ -132,5 +135,14 @@ Requires Node 22+, pnpm, and `npx playwright install chromium` for the browser p
 points refuse to start on anything older and say so in one line — `.nvmrc` pins the version, so
 `nvm use` in the project directory is enough.
 
-With Supabase configured, auth is required by default. For local poking, run
-`REQUIRE_AUTH=0 pnpm serve`.
+With Supabase configured, auth is required by default on `/scrape`, `/form-spec` and `/jobs`. For
+local poking, run `REQUIRE_AUTH=0 pnpm serve`.
+
+`/health` and `/demo` stay open. `/demo` is the one the public waitlist page calls, and it pays for
+being open: ten reads per caller per ten minutes (`DEMO_RATE_LIMIT`, `DEMO_WINDOW_MS`), markdown
+truncated at 20,000 characters, and `browser=always` refused — `auto` still escalates on a page
+that is genuinely empty, so an SPA works, but nobody can force the expensive path on a page that
+never needed it.
+
+The web app needs its own `apps/web/.env.local`; Next reads env files from its own directory and
+cannot see the root `.env`. See `apps/web/.env.example`.

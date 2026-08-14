@@ -61,6 +61,8 @@ serve({
     jobConcurrency: config.jobConcurrency,
     maxQueued: config.maxQueued,
     corsOrigins: config.corsOrigins,
+    demoRateLimit: config.demoRateLimit,
+    demoWindowMs: config.demoWindowMs,
   }).fetch,
   port: config.port,
 });

@@ -24,6 +24,19 @@ export const ConfigSchema = z.object({
   /** Jobs allowed to wait before the service answers 503. */
   maxQueued: z.coerce.number().int().positive().default(100),
 
+  /**
+   * The open `/demo` endpoint: reads per caller per window.
+   *
+   * Everything else needs a token. This one is what the public waitlist page
+   * calls, so the cap is what stands between a demo and a free scraping API.
+   */
+  demoRateLimit: z.coerce.number().int().positive().default(10),
+  demoWindowMs: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 60 * 1000),
+
   /** Allow scraping private/loopback addresses. Never in production. */
   allowPrivate: BooleanFromEnv.default('0'),
 
@@ -79,6 +92,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     browserConcurrency: env.BROWSER_CONCURRENCY,
     jobConcurrency: env.JOB_CONCURRENCY,
     maxQueued: env.MAX_QUEUED,
+    demoRateLimit: env.DEMO_RATE_LIMIT,
+    demoWindowMs: env.DEMO_WINDOW_MS,
     allowPrivate: env.SCRAPE_ALLOW_PRIVATE,
     supabase,
     requireAuth: env.REQUIRE_AUTH,

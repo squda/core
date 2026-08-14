@@ -594,3 +594,98 @@ describe('CORS', () => {
     expect(response.headers.get('access-control-expose-headers')).toContain('x-cache');
   });
 });
+
+/**
+ * The one endpoint that answers without a token, and therefore the one that has
+ * to be narrow. These assert the narrowness, not the happy path — the happy
+ * path is /form-spec and /scrape, already covered above.
+ */
+describe('GET /demo', () => {
+  const page = () => stubFetch((url) => fakeResponse(url, { body: loadFixture('form-page').html }));
+
+  it('answers both halves in one call', async () => {
+    page();
+
+    const response = await createApp().request('/demo?url=https://a.test/signup');
+    const body = (await response.json()) as {
+      spec: { forms: unknown[] };
+      text: { markdown: string; characters: number; truncated: boolean };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.spec.forms.length).toBeGreaterThan(0);
+    expect(body.text.markdown.length).toBeGreaterThan(0);
+    expect(body.text.truncated).toBe(false);
+  });
+
+  // Auto still escalates on a genuinely empty page, so an SPA works. What is
+  // refused is *forcing* the expensive path on a page that never needed it.
+  it('will not let a caller force the browser', async () => {
+    const response = await createApp().request('/demo?url=https://a.test/&browser=always');
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('invalid-request');
+  });
+
+  it('needs a url like every other endpoint', async () => {
+    expect((await createApp().request('/demo')).status).toBe(400);
+  });
+
+  it('refuses past the limit, and says when to come back', async () => {
+    page();
+    const app = createApp({ demoRateLimit: 2, callerKey: () => 'one-caller' });
+
+    expect((await app.request('/demo?url=https://a.test/1')).status).toBe(200);
+    expect((await app.request('/demo?url=https://a.test/2')).status).toBe(200);
+
+    const refused = await app.request('/demo?url=https://a.test/3');
+    expect(refused.status).toBe(429);
+    expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect((await refused.json()).error.code).toBe('rate-limited');
+  });
+
+  it('counts callers separately', async () => {
+    page();
+    let who = 'first';
+    const app = createApp({ demoRateLimit: 1, callerKey: () => who });
+
+    expect((await app.request('/demo?url=https://a.test/1')).status).toBe(200);
+    expect((await app.request('/demo?url=https://a.test/2')).status).toBe(429);
+
+    who = 'second';
+    expect((await app.request('/demo?url=https://a.test/3')).status).toBe(200);
+  });
+
+  it('reports what is left, so a client need not guess', async () => {
+    page();
+    const app = createApp({ demoRateLimit: 3, callerKey: () => 'x' });
+
+    const response = await app.request('/demo?url=https://a.test/1');
+    expect(response.headers.get('x-ratelimit-remaining')).toBe('2');
+  });
+
+  // A visitor is reading a preview, not exporting a corpus. The cap is what
+  // bounds the cost of one unauthenticated request.
+  it('truncates a long page and admits that it did', async () => {
+    const long = `<html><body><article>${'word '.repeat(30_000)}</article></body></html>`;
+    stubFetch((url) => fakeResponse(url, { body: long }));
+
+    const response = await createApp().request('/demo?url=https://a.test/long');
+    const body = (await response.json()) as {
+      text: { markdown: string; truncated: boolean; characters: number };
+    };
+
+    expect(body.text.markdown.length).toBe(20_000);
+    expect(body.text.truncated).toBe(true);
+    expect(body.text.characters).toBeGreaterThan(20_000);
+  });
+
+  it('reports a refusing site the same way the other endpoints do', async () => {
+    stubFetch((url) => fakeResponse(url, { status: 403, body: 'no' }));
+
+    const response = await createApp().request('/demo?url=https://blocked.test/');
+
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe('http-status');
+  });
+});
