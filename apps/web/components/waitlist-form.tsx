@@ -53,10 +53,20 @@ export function WaitlistForm({ compact = false }: { compact?: boolean }) {
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           {status === 'already'
-            ? 'No need to join twice. We email once, when filling works.'
-            : 'We email once, when filling works. Nothing before that.'}
+            ? 'No need to join twice. We email once, the day filling ships.'
+            : 'We email once, the day filling ships. Nothing before that.'}
         </p>
-        <p className="text-muted-foreground mt-2 font-mono text-xs break-all">{email.trim()}</p>
+        {/*
+         * The address is a stored fact now, not prose — a chip says so, and bounds it.
+         * The wrapper is what puts it on its own line: the chip has to stay inline-block
+         * to shrink to its content, and the Button below is inline-flex, so without a
+         * block parent the two share a line.
+         */}
+        <div className="mt-2.5">
+          <span className="border-border bg-accent text-muted-foreground inline-block max-w-full border px-2 py-1 font-mono text-xs break-all">
+            {email.trim()}
+          </span>
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -91,7 +101,7 @@ export function WaitlistForm({ compact = false }: { compact?: boolean }) {
           className="min-w-0 flex-1"
         />
         <Button type="submit" disabled={status === 'submitting'} className="shrink-0">
-          {status === 'submitting' ? 'Joining…' : compact ? 'Join' : 'Join the waitlist'}
+          {status === 'submitting' ? 'Joining...' : compact ? 'Join' : 'Join the waitlist'}
         </Button>
       </div>
       {broken && (

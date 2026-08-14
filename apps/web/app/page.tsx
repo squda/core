@@ -1,5 +1,3 @@
-import Image from 'next/image';
-import logoMark from '@/public/logo-mark.png';
 import { ReadDemo } from '@/components/read-demo';
 import { WaitlistForm } from '@/components/waitlist-form';
 import { Separator } from '@/components/ui/separator';
@@ -14,20 +12,18 @@ import { Separator } from '@/components/ui/separator';
  */
 export default function Home() {
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-5 pb-24">
-      <header className="flex flex-wrap items-center justify-between gap-4 py-6">
-        <div className="flex items-center gap-2.5">
-          {/*
-           * Imported rather than referenced by path so Next reads the real
-           * dimensions out of the file: the mark is taller than it is wide, and
-           * a square width/height would squash it. `h-8 w-auto` keeps the ratio
-           * whatever the source is replaced with.
-           */}
-          <Image src={logoMark} alt="" className="h-8 w-auto" priority />
-          <span className="text-sm font-semibold tracking-[0.12em] uppercase">Squda</span>
-        </div>
+    <div className="mx-auto min-h-screen max-w-7xl px-5">
+      <header className="flex flex-wrap items-center justify-between gap-4 py-8">
+        {/* The mark carried the S. With it gone the wordmark has to spell the name itself. */}
+        <span className="text-sm font-semibold tracking-[0.12em] uppercase">squda</span>
+        {/*
+         * The badge describes what the product does, not what it lacks. The
+         * roadmap has its own section further down; the masthead is the wrong
+         * place to spend on a caveat, and the demo below proves this claim
+         * within one paste.
+         */}
         <span className="text-muted-foreground font-mono text-xs">
-          reading works today · filling does not
+          reads any form · names every field
         </span>
       </header>
 
@@ -38,7 +34,7 @@ export default function Home() {
           <h1 className="text-4xl leading-[0.98] font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
             Every form asks for the same things. Nothing agrees what to call them.
           </h1>
-          <p className="text-muted-foreground mt-6 max-w-[46ch] text-lg text-pretty">
+          <p className="text-muted-foreground mt-6 max-w-[46ch] text-base text-pretty">
             Paste a url below. You get the page as clean markdown, and every box on it — what it is
             called, what type it is, and how sure we are that we know its name.
           </p>
@@ -49,7 +45,7 @@ export default function Home() {
           </p>
           <WaitlistForm />
           <p className="text-muted-foreground mt-3 text-sm">
-            One email when filling works. Nothing else.
+            One email the day filling ships. Nothing else.
           </p>
         </div>
       </section>
@@ -62,11 +58,11 @@ export default function Home() {
 
       <section className="grid gap-10 py-16 sm:grid-cols-2">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">What&rsquo;s coming</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Next filling</h2>
           <p className="text-muted-foreground mt-4 max-w-[56ch] text-pretty">
-            Filling. You answer the handful of facts every form asks for once, and the next form
-            gets them typed in for you — shown to you filled in, and never submitted until you say
-            so. The waitlist is how you hear when it ships.
+            You answer the handful of facts every form asks for once, and the next form gets them
+            typed in for you — shown to you filled in, and never submitted until you say so. The
+            waitlist is how you hear when it ships.
           </p>
         </div>
         <div>
@@ -79,7 +75,10 @@ export default function Home() {
               { label: 'License #', source: 'placeholder' },
               { label: 'no name on the page', source: '(none)', faded: true },
             ].map((row) => (
-              <div key={row.source} className="flex items-baseline justify-between gap-4 p-3.5">
+              <div
+                key={row.source}
+                className="flex items-baseline text-sm justify-between gap-4 p-3.5"
+              >
                 <span className={row.faded ? 'text-muted-foreground italic' : ''}>{row.label}</span>
                 <span className="text-muted-foreground font-mono text-[11px] whitespace-nowrap">
                   {row.source}
@@ -95,9 +94,9 @@ export default function Home() {
 
       <Separator />
 
-      <footer className="text-muted-foreground flex flex-wrap justify-between gap-6 pt-10 font-mono text-xs">
-        <span>Squda</span>
-        <span>reading works today · filling does not</span>
+      <footer className="text-muted-foreground flex flex-wrap justify-between gap-6 py-8 font-mono text-xs">
+        <span>built by makeagent</span>
+        <span>reads any form · names every field</span>
       </footer>
     </div>
   );

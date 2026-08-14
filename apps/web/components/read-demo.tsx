@@ -229,7 +229,7 @@ function Result({ status }: { status: Extract<Status, { state: 'read' }> }) {
         <TabsContent value="fields">
           {fields.length === 0 ? (
             <div className="border-border bg-card border p-10">
-              <p className="font-medium">No forms on this page</p>
+              <p className="font-medium text-sm">No forms on this page</p>
               <p className="text-muted-foreground mt-2 max-w-prose text-sm">
                 We read it and found nothing to fill: no inputs, no selects, no textareas. That is
                 an answer, not a failure — try a sign-up, an application or a checkout.
@@ -368,7 +368,7 @@ function TextPanel({ text }: { text: PageText }) {
   if (!text.markdown) {
     return (
       <div className="border-border bg-card border p-10">
-        <p className="font-medium">No readable text on this page</p>
+        <p className="font-medium text-sm">No readable text on this page</p>
         <p className="text-muted-foreground mt-2 max-w-prose text-sm">
           There was a page, but nothing on it that reads as an article — which is normal for a form,
           a dashboard or an app shell.
@@ -380,7 +380,7 @@ function TextPanel({ text }: { text: PageText }) {
   return (
     <div className="border-border bg-card border">
       <div className="border-border border-b p-5">
-        <p className="font-medium">{text.title || 'Untitled page'}</p>
+        <p className="font-medium text-sm">{text.title || 'Untitled page'}</p>
         {text.description && (
           <p className="text-muted-foreground mt-1 text-sm">{text.description}</p>
         )}
