@@ -1,4 +1,4 @@
-import type { FieldType } from './form-spec.js';
+import type { FieldType } from '@untitled/schema';
 
 /**
  * Which boxes hold something private.

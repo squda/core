@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extractForms } from '../src/core/forms.js';
 import { loadFixture } from './fixtures.js';
-import type { Field, FormSpec } from '../src/core/form-spec.js';
+import type { Field, FormSpec } from '@untitled/schema';
 
 /**
  * Phase 4, step 6 — snapshots of every captured form.

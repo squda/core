@@ -9,7 +9,7 @@ import {
   type Form,
   type FormSpec,
   type LabelSource,
-} from './form-spec.js';
+} from '@untitled/schema';
 import { isSensitive } from './sensitive.js';
 import { collapseWhitespace } from '../support/text.js';
 import { toAbsoluteUrl } from './url.js';

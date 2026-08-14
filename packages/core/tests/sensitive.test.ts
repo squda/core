@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isSensitive } from '../src/core/sensitive.js';
-import type { FieldType } from '../src/core/form-spec.js';
+import type { FieldType } from '@untitled/schema';
 
 function field(overrides: Partial<Parameters<typeof isSensitive>[0]> = {}) {
   return {

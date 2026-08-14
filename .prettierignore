@@ -1,0 +1,9 @@
+# Captured pages, byte-for-byte as the site served them. Formatting them would
+# rewrite the very messiness the walker is tested against — and prettier cannot
+# parse them anyway, because real pages contain stray closing tags.
+packages/core/fixtures/**/*.html
+
+node_modules
+dist
+.next
+pnpm-lock.yaml

@@ -1,40 +1,25 @@
 {
-  "name": "core",
+  "name": "untitled",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "scrape": "tsx src/cli.ts",
-    "serve": "tsx --env-file-if-exists=.env src/server.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:browser": "vitest run --config vitest.browser.config.ts",
-    "typecheck": "tsc --noEmit",
+    "scrape": "pnpm --filter @untitled/core scrape",
+    "serve": "pnpm --filter @untitled/core serve",
+    "web": "pnpm --filter @untitled/web dev",
+    "dev": "pnpm --parallel --filter @untitled/core --filter @untitled/web dev",
+    "test": "pnpm --filter @untitled/core test",
+    "test:watch": "pnpm --filter @untitled/core test:watch",
+    "test:browser": "pnpm --filter @untitled/core test:browser",
+    "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
-  "dependencies": {
-    "@hono/node-server": "^2.1.0",
-    "@mozilla/readability": "^0.5.0",
-    "@supabase/supabase-js": "^2.112.3",
-    "cheerio": "^1.0.0",
-    "domhandler": "^6.0.1",
-    "hono": "^4.13.2",
-    "jsdom": "^24.1.0",
-    "turndown": "^7.2.0",
-    "zod": "^3.23.8"
-  },
   "devDependencies": {
-    "@types/jsdom": "^21.1.7",
-    "@types/node": "^20.14.0",
-    "@types/turndown": "^5.0.4",
     "eslint": "^9.7.0",
-    "playwright": "^1.62.1",
     "prettier": "^3.3.0",
-    "tsx": "^4.16.0",
     "typescript": "^5.5.0",
-    "typescript-eslint": "^7.16.0",
-    "vitest": "^2.0.0"
+    "typescript-eslint": "^7.16.0"
   },
   "engines": {
     "node": ">=22"
