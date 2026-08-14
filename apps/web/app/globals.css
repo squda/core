@@ -1,0 +1,29 @@
+/*
+ * Deliberately almost empty — a reset and nothing else.
+ *
+ * The design has not been decided yet, so this file holds no colours, no type
+ * scale and no spacing system. When the design arrives, either it lands here or
+ * this gets replaced by whatever it calls for (CSS modules, Tailwind, anything
+ * else). Nothing in the app depends on a choice made here.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}

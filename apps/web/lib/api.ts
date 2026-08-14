@@ -3,17 +3,17 @@ import { FormSpecSchema, type FormSpec } from '@untitled/schema';
 /**
  * The browser half of the service's contract.
  *
- * It parses what comes back with the same Zod schema the server validated it
- * with — the whole reason `@untitled/schema` is its own package. If the service
- * ever changes shape, this fails loudly here rather than rendering `undefined`
- * into a table three components down.
+ * Responses are parsed with the same Zod schema the server validated them
+ * with — the reason `@untitled/schema` is its own package. If the service ever
+ * changes shape this fails loudly here, rather than rendering `undefined` into
+ * a component three levels down.
+ *
+ * Calls go to /api, which the catch-all route handler forwards to the service.
  */
-
-const BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export type BrowserMode = 'auto' | 'never' | 'always';
 
-/** What the service says when it refuses. Worth showing verbatim — it is specific. */
+/** What the service says when it refuses. Specific enough to show verbatim. */
 export class ServiceError extends Error {
   constructor(
     readonly code: string,
@@ -33,14 +33,15 @@ async function readError(response: Response): Promise<never> {
     if (body.error?.code) code = body.error.code;
     if (body.error?.message) message = body.error.message;
   } catch {
-    // A non-JSON error body (a proxy's HTML 502 page) leaves the defaults.
+    // A non-JSON error body leaves the defaults in place.
   }
   throw new ServiceError(code, message, response.status);
 }
 
-export async function fetchFormSpec(url: string, browser: BrowserMode): Promise<FormSpec> {
+/** Every form on a page, with each field's label and where that label came from. */
+export async function fetchFormSpec(url: string, browser: BrowserMode = 'auto'): Promise<FormSpec> {
   const query = new URLSearchParams({ url, browser });
-  const response = await fetch(`${BASE}/form-spec?${query}`);
+  const response = await fetch(`/api/form-spec?${query}`);
   if (!response.ok) await readError(response);
   return FormSpecSchema.parse(await response.json());
 }
@@ -52,13 +53,13 @@ export interface PageText {
   fetchedWith: string;
 }
 
-export async function fetchPageText(url: string, browser: BrowserMode): Promise<PageText> {
-  const response = await fetch(`${BASE}/scrape`, {
+/** The same page as prose. Behind auth whenever Supabase is configured. */
+export async function fetchPageText(url: string, browser: BrowserMode = 'auto'): Promise<PageText> {
+  const response = await fetch('/api/scrape', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ url, browser }),
   });
   if (!response.ok) await readError(response);
-  const document = (await response.json()) as PageText;
-  return document;
+  return (await response.json()) as PageText;
 }
