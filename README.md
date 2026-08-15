@@ -127,7 +127,7 @@ pnpm lint
 pnpm format
 ```
 
-Tests never hit the live network. `packages/core/fixtures/` holds six real pages captured with
+Tests never hit the live network. `packages/core/fixtures/` holds fifteen real pages captured with
 `npx tsx scripts/grab-fixture.ts <url> <name>` from inside `packages/core`; see
 [the fixtures README](./packages/core/fixtures/README.md).
 

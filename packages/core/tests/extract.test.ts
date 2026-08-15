@@ -159,6 +159,39 @@ describe('against the fixtures', () => {
   });
 
   /**
+   * Readability returns the single best-scoring subtree. When a page splits its
+   * content across tabs, that subtree is one tab — and the rest is dropped with
+   * no error and nothing in the output to suggest anything is missing.
+   */
+  it('keeps the whole page when Readability picks one section of it', () => {
+    const doc = loadFixture('tabbed-content');
+    const { html, strategy } = extractContent(doc);
+    const text = textOf(html);
+
+    expect(strategy).toBe('body');
+
+    // The FAQ accordion is the densest block, so it is what Readability chose.
+    expect(text).toContain('Composite loan');
+    // These sat in other tabs and were the 4,500 characters it discarded.
+    for (const missing of ['greenfield', 'Eligibility', 'Application Process', 'Documents']) {
+      expect(text).toContain(missing);
+    }
+  });
+
+  // A short page is mostly furniture by volume, so Readability legitimately
+  // keeps a small share of it. The floor is what stops the coverage rule from
+  // firing on every login form in the fixture set.
+  it('trusts Readability on a page too short for the ratio to mean anything', () => {
+    expect(extractContent(loadFixture('form-page')).strategy).toBe('readability');
+    expect(extractContent(loadFixture('form-login-minimal')).strategy).toBe('readability');
+  });
+
+  it('still prefers Readability on a real article', () => {
+    expect(extractContent(loadFixture('blog-post')).strategy).toBe('readability');
+    expect(extractContent(loadFixture('wikipedia')).strategy).toBe('readability');
+  });
+
+  /**
    * Recorded on purpose: this pipeline is prose-only. Readability keeps the
    * <form> and its <label>s but throws away every <input> — so Phase 4 must
    * walk the raw HtmlDocument itself rather than reusing extractContent.

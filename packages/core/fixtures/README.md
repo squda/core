@@ -9,15 +9,17 @@ the real pipeline offline.
 
 ## What's here
 
-| name             | why it's here                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| `blog-post`      | article-shaped, hand-written HTML — Readability's happy path                               |
-| `docs-page`      | MDN: heavy nav/sidebar/breadcrumbs to strip. Redirected — a live `finalUrl` case           |
-| `wikipedia`      | huge, tables, footnotes, edit links                                                        |
-| `news-article`   | 1.4MB of ads, embeds, and furniture around the content                                     |
-| `spa-empty-root` | body is `<div id="root"></div>` — the page that proves you need Phase 2                    |
-| `form-page`      | 11 inputs, radios, checkboxes, a select — reused in Phase 4                                |
-| `thin-profile`   | x.com logged out: a real page that _looks_ like a login wall — negative case for `wall.ts` |
+| name                 | why it's here                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `blog-post`          | article-shaped, hand-written HTML — Readability's happy path                                                                  |
+| `docs-page`          | MDN: heavy nav/sidebar/breadcrumbs to strip. Redirected — a live `finalUrl` case                                              |
+| `wikipedia`          | huge, tables, footnotes, edit links                                                                                           |
+| `news-article`       | 1.4MB of ads, embeds, and furniture around the content                                                                        |
+| `spa-empty-root`     | body is `<div id="root"></div>` — the page that proves you need Phase 2                                                       |
+| `form-page`          | 11 inputs, radios, checkboxes, a select — reused in Phase 4                                                                   |
+| `thin-profile`       | x.com logged out: a real page that _looks_ like a login wall — negative case for `wall.ts`                                    |
+| `spa-hydrated-shell` | the harder SPA: chrome around an empty middle, so the mount point is not empty and the footer alone clears the thinness floor |
+| `tabbed-content`     | the same page rendered — content split across six tabs, which Readability reduces to whichever one scores highest             |
 
 `manifest.json` records the url, the `finalUrl` after redirects, status, content-type, and
 when each was captured. Add a row when you add a page; `tests/fixtures.test.ts` fails if you

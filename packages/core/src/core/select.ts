@@ -43,6 +43,29 @@ const SUBSTANTIAL_MARKDOWN = 1000;
 /** Frameworks mount into these. Empty means the app never ran. */
 const MOUNT_POINTS = ['root', 'app', '__next', '__nuxt', 'q-app', 'svelte'];
 
+/**
+ * The hydration payload a framework ships so the client can rebuild the page.
+ *
+ * Its presence says a framework rendered this, not whether it rendered the
+ * *content* — a server-rendered Next.js page carries `__NEXT_DATA__` too. So
+ * this is a weak signal, weighed exactly like the noscript banner: it only
+ * counts while the page is also short on content.
+ *
+ * That pairing is what catches the shape the mount-point check misses — a shell
+ * that ships a header and footer around an empty middle. The mount point is not
+ * empty (there is chrome in it) and the markdown clears the thinness floor (a
+ * footer is a few hundred characters), so without this a page with no content
+ * at all reads as a page that said something.
+ */
+const HYDRATION_MARKERS = [
+  '__NEXT_DATA__', // Next.js, pages router
+  'self.__next_f', // Next.js, app router
+  '__NUXT__', // Nuxt
+  '__remixContext', // Remix
+  '__sveltekit_', // SvelteKit
+  'window.__INITIAL_STATE__', // Vue/Redux SSR, widely copied
+];
+
 export function judge(doc: HtmlDocument, scraped: ScrapedDocument): Verdict {
   if (doc.fetchedWith === 'browser') {
     return { needsBrowser: false, reason: 'already fetched with a browser' };
@@ -60,9 +83,19 @@ export function judge(doc: HtmlDocument, scraped: ScrapedDocument): Verdict {
     };
   }
 
-  // Weak signal, so it only counts while the page is still short on content.
-  if (scraped.markdown.length < SUBSTANTIAL_MARKDOWN && demandsJavaScript(doc.html)) {
-    return { needsBrowser: true, reason: 'page says it requires JavaScript' };
+  // Weak signals, so they only count while the page is still short on content.
+  if (scraped.markdown.length < SUBSTANTIAL_MARKDOWN) {
+    if (demandsJavaScript(doc.html)) {
+      return { needsBrowser: true, reason: 'page says it requires JavaScript' };
+    }
+
+    const marker = findHydrationMarker(doc.html);
+    if (marker) {
+      return {
+        needsBrowser: true,
+        reason: `${scraped.markdown.length} characters around a ${marker} payload`,
+      };
+    }
   }
 
   return { needsBrowser: false, reason: `${scraped.markdown.length} characters of markdown` };
@@ -82,6 +115,17 @@ function findEmptyMountPoint(html: string): string | null {
     if (pattern.test(html)) return id;
   }
   return null;
+}
+
+/**
+ * Which framework's hydration payload the page carries, if any.
+ *
+ * A substring scan rather than a parse: these are script contents, and the
+ * marker is the variable name the framework writes, so an exact match on the
+ * literal is both the cheapest and the least ambiguous test available.
+ */
+function findHydrationMarker(html: string): string | null {
+  return HYDRATION_MARKERS.find((marker) => html.includes(marker)) ?? null;
 }
 
 /** The <noscript> banner a JS-only site shows to a client that can't run it. */

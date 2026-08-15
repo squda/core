@@ -87,6 +87,27 @@ describe('other signals', () => {
     expect(judge(page(html), scrapeHtml(page(html))).reason).toContain('requires JavaScript');
   });
 
+  it('retries a shell that wrapped a hydration payload in chrome', () => {
+    const verdict = judgeFixture('spa-hydrated-shell');
+
+    expect(verdict.needsBrowser).toBe(true);
+    expect(verdict.reason).toContain('__NEXT_DATA__');
+  });
+
+  // The point of the signal. This page defeats all three of the older checks:
+  // its mount point holds a loading skeleton so it is not empty, its noscript
+  // is an <img> fallback rather than a banner, and its footer alone clears the
+  // thinness floor twice over. Without the payload check it reads as a page
+  // that said something, when it said nothing at all.
+  it('catches a shell that clears the thinness floor on footer text alone', () => {
+    const doc = loadFixture('spa-hydrated-shell');
+    const scraped = scrapeHtml(doc);
+
+    expect(scraped.markdown.length).toBeGreaterThan(150);
+    expect(doc.html).not.toMatch(/<div[^>]*id=["']__next["'][^>]*>\s*<\/div>/i);
+    expect(judge(doc, scraped).needsBrowser).toBe(true);
+  });
+
   it('ignores a noscript block that is just a tracking pixel', () => {
     const html =
       '<html><body><noscript><img src="https://analytics.test/p.gif"></noscript>' +
@@ -108,6 +129,21 @@ describe('a strong signal beats a weak one', () => {
     expect(doc.html).toContain('Enable JavaScript');
     expect(scraped.markdown.length).toBeGreaterThan(1000);
     expect(judge(doc, scraped).needsBrowser).toBe(false);
+  });
+
+  // Server-rendered Next.js ships __NEXT_DATA__ with the content already in the
+  // HTML. Retrying those would put a Chromium behind a large share of the web.
+  it('ignores a hydration payload on a page that already said plenty', () => {
+    const html =
+      '<html><body><div id="__next">' +
+      '<p>Server-rendered markup, delivered complete, on a page that also ships a hydration payload so the client can take over.</p>'.repeat(
+        12,
+      ) +
+      '</div><script id="__NEXT_DATA__" type="application/json">{"props":{}}</script></body></html>';
+    const scraped = scrapeHtml(page(html));
+
+    expect(scraped.markdown.length).toBeGreaterThan(1000);
+    expect(judge(page(html), scraped).needsBrowser).toBe(false);
   });
 });
 

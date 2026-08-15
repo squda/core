@@ -121,5 +121,25 @@
     "fetchedAt": "2026-08-13T22:27:01.230Z",
     "bytes": 2376,
     "fetchedWith": "http"
+  },
+  {
+    "name": "spa-hydrated-shell",
+    "url": "https://www.myscheme.gov.in/schemes/sui",
+    "finalUrl": "https://www.myscheme.gov.in/schemes/sui",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-15T06:19:48.117Z",
+    "bytes": 53653,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "tabbed-content",
+    "url": "https://www.myscheme.gov.in/schemes/sui",
+    "finalUrl": "https://www.myscheme.gov.in/schemes/sui",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-15T06:19:53.824Z",
+    "bytes": 203062,
+    "fetchedWith": "browser"
   }
 ]
