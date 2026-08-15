@@ -21,12 +21,16 @@ on:
       - 'pnpm-workspace.yaml'
       - 'package.json'
       - '.github/workflows/deploy-core.yml'
+      - 'deploy/**'
   # So a broken deploy can be re-run from the Actions tab without an empty commit.
   workflow_dispatch:
 
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: squda-core
+  # The one place that knows which box this deploys to. Replacing the instance
+  # means changing this line, and nothing else.
+  INSTANCE_ID: i-06b26b00943177c23
 
 jobs:
   push:
@@ -72,10 +76,10 @@ jobs:
         env:
           REGISTRY: ${{ steps.login.outputs.registry }}
         run: |
-          # Two tags on one image: `latest` is what the Lambda function is
-          # pointed at, and the commit sha is what makes a bad deploy
-          # diagnosable — without it every rollback question starts with
-          # "which build was that?".
+          # Two tags on one image: `latest` for a human pulling by hand, and the
+          # commit sha for the deploy to pin to. Deploying `latest` makes two
+          # builds indistinguishable afterwards, and the first question when
+          # something breaks is always "which build is actually running?".
           docker build \
             -f packages/core/Dockerfile \
             -t "$REGISTRY/$ECR_REPOSITORY:latest" \
@@ -83,3 +87,44 @@ jobs:
             .
           docker push "$REGISTRY/$ECR_REPOSITORY:latest"
           docker push "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+
+      # Through SSM rather than SSH: the instance already runs the agent, the
+      # credentials are the ones this workflow already has, and there is no key
+      # to store, rotate, or leak. Port 22 stays shut.
+      #
+      # The script is sent base64-encoded because AWS-RunShellScript takes its
+      # commands as a JSON array — every quote and newline in a shell script
+      # would otherwise need escaping through two layers, which is a class of
+      # bug with no upside.
+      - name: Deploy to EC2
+        env:
+          REGISTRY: ${{ steps.login.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+          SCRIPT=$(base64 -w0 deploy/ec2-deploy.sh)
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA:0:7}" \
+            --parameters "commands=[\"echo $SCRIPT | base64 -d | bash -s -- $IMAGE\"]" \
+            --query 'Command.CommandId' --output text)
+
+          echo "ssm command $COMMAND_ID"
+
+          # `wait` returns non-zero on a failed command, and the output is worth
+          # printing either way — a deploy that failed silently in a log nobody
+          # opens is the reason this step exists at all.
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" && STATUS=ok || STATUS=failed
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text
+
+          if [ "$STATUS" != ok ]; then
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+              --query 'StandardErrorContent' --output text
+            exit 1
+          fi
