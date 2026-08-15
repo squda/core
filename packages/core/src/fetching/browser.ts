@@ -190,8 +190,8 @@ export class BrowserStrategy implements FetchStrategy {
      * Playwright's own timeouts cover the calls they are attached to. They do
      * not cover a browser that dies underneath us: the CDP connection goes
      * silent and the promise we are awaiting neither resolves nor rejects, so
-     * the request hangs until something above kills it — 210 seconds on Lambda,
-     * and forever on a long-running server, which is worse.
+     * the request hangs until something above kills it, and on a long-running
+     * server nothing above it will.
      *
      * This is what guarantees a fetch always settles. It is deliberately not
      * clever: no cancellation, no cleanup beyond what `finally` already does.
@@ -300,8 +300,8 @@ const FIRST_ATTEMPT_SHARE = 0.6;
  * each the full `timeoutMs` — which is what this did originally — means a
  * 30-second timeout can spend 60 seconds, and a caller who budgeted for the
  * number they passed gets killed by whatever is enforcing it one layer up. On
- * Lambda that arrived as a 60.3s invocation against a 60s limit: not a hung
- * page, just arithmetic nobody had done.
+ * a host with a 60s ceiling that arrived as a 60.3s request: not a hung page,
+ * just arithmetic nobody had done.
  *
  * A timeout with no response at all is still a timeout, and still throws.
  */

@@ -175,8 +175,19 @@ and sends you looking at the entrypoint. Building on the platform instead (Cloud
 GitHub Action) sidesteps it entirely, which is the better answer when it is available.
 
 The Dockerfile sets `CHROMIUM_ARGS=--no-sandbox,--disable-dev-shm-usage`, which a container needs
-and a laptop does not. `PORT` is read from the environment, so Cloud Run, Render and Fly all work
-without changes.
+and a laptop does not.
+
+On a server, run it under a restart policy:
+
+```console
+$ docker run -d --restart unless-stopped -p 80:8080 --env-file .env squda-core
+```
+
+That is the recovery path for the one failure this service cannot catch: Playwright reports some
+browser crashes from a CDP callback rather than from the call you made, so they arrive as uncaught
+exceptions and take the process with them. Nothing in the code can catch those — and a process
+manager restarting a fresh container in two seconds is a better answer than a service that keeps
+running with a browser it no longer trusts.
 
 `apps/web` deploys separately as an ordinary Next.js app, and needs `SCRAPE_SERVICE_URL` pointing
 at wherever the service landed.

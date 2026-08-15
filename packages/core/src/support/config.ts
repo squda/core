@@ -31,9 +31,9 @@ export const ConfigSchema = z.object({
    * slow government site, a page behind three redirects. Then raise whatever
    * enforces a limit above this too, and leave it about fifteen seconds of
    * room: an `auto` scrape can spend this on HTTP *and* again on the browser,
-   * and then dismiss consent and expand tabs on top. On Lambda a function
-   * timeout below that arrives as a 502 with nothing in it that says "slow
-   * page", which is a bad way to learn you were nearly finished.
+   * and then dismiss consent and expand tabs on top. A proxy or a client that
+   * gives up below that reports a connection failure with nothing in it that
+   * says "slow page", which is a bad way to learn you were nearly finished.
    */
   fetchTimeoutMs: z.coerce.number().int().positive().default(30_000),
   /**

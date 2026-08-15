@@ -67,11 +67,11 @@ export interface ScrapeOptions {
    * budgeting for — it divides this between waiting for the page to go quiet
    * and a fallback for pages that never do, so the two together stay inside it.
    *
-   * Anything enforcing a limit above this — Lambda's function timeout, a load
-   * balancer, a client — has to allow for the escalation and for the work after
-   * the page loads: dismissing consent, expanding tabs. Leave it fifteen
-   * seconds of room and a slow page reports a timeout instead of being killed
-   * mid-sentence by something that cannot say why.
+   * Anything enforcing a limit above this — a load balancer, a proxy, a client
+   * — has to allow for the escalation and for the work after the page loads:
+   * dismissing consent, expanding tabs. Leave it fifteen seconds of room and a
+   * slow page reports a timeout instead of being killed mid-sentence by
+   * something that cannot say why.
    */
   timeoutMs?: number;
 }

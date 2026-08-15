@@ -107,10 +107,10 @@ export interface AppOptions {
   /**
    * How long one fetch may take on the authenticated endpoints. 30s default.
    *
-   * Whatever enforces a limit above this — Lambda, a proxy, a client — needs
-   * roughly fifteen seconds more than this number, because an `auto` scrape can
-   * spend it twice (HTTP, then browser) and still has consent and expansion to
-   * do afterwards.
+   * Whatever enforces a limit above this — a proxy, a load balancer, a client —
+   * needs roughly fifteen seconds more than this number, because an `auto`
+   * scrape can spend it twice (HTTP, then browser) and still has consent and
+   * expansion to do afterwards.
    */
   fetchTimeoutMs?: number;
   /** The same for `/demo`, shorter: a visitor is watching. 20s default. */
