@@ -48,6 +48,15 @@ const JUNK_SELECTORS = [
   '[role="banner"]',
   '[role="complementary"]',
   '[hidden]',
+  /*
+   * Written by the browser strategy, which is the only part of the pipeline
+   * that can see a stylesheet. A page hides dialogs with CSS classes —
+   * Tailwind's `hidden`, Bootstrap's `d-none` — and to this parser those are
+   * ordinary headings that arrive at the top of the article. Matching the class
+   * names instead would be a guess, and a bad one: `hidden md:block` is an
+   * element that is visible on every screen this scraper uses.
+   */
+  '[data-scrape-hidden]',
   'link',
   'meta[http-equiv]',
 ];

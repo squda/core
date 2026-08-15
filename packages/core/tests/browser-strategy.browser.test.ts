@@ -332,3 +332,69 @@ describe('content that is only there after a click', () => {
     }
   });
 });
+
+describe('dialogs the page ships but does not show', () => {
+  it('keeps them out of the markdown', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/hidden-dialogs`);
+      const markdown = scrapeHtml(doc).markdown;
+
+      // display: none, and visibility: hidden — both applied by a stylesheet,
+      // which is what extraction cannot see on its own.
+      expect(markdown).not.toContain('SomethingWentWrong');
+      expect(markdown).not.toContain('AreYouSure');
+      // Declared a dialog, so its position does not matter.
+      expect(markdown).not.toContain('PleaseSignIn');
+      expect(markdown).toContain('Real Article');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  /**
+   * The rule this is narrow for. Collapsed content is hidden too, and most of
+   * it is real — myscheme.gov.in builds its FAQ from divs with no role and no
+   * `aria-expanded`, so the expander cannot open them. Dropping every hidden
+   * element took all nine answers with it, which is silent loss of exactly the
+   * content someone came for. An overlay is out of the flow; this is not.
+   */
+  it('keeps collapsed content that nothing marks as expandable', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const markdown = scrapeHtml(await strategy.fetch(`${server.origin}/hidden-dialogs`)).markdown;
+
+      expect(markdown).toContain('CollapsedAnswer');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  /**
+   * The invariant that makes marking the right move instead of removing:
+   * `html` stays what the browser had, so Phase 4 still finds hidden inputs.
+   * Deleting them here would break form extraction from two rooms away.
+   */
+  it('leaves the document itself intact for the form walker', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/hidden-dialogs`);
+
+      expect(doc.html).toContain('name="csrf"');
+      expect(doc.html).toContain('SomethingWentWrong');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  it('marks nothing on a page where everything is visible', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/`);
+
+      expect(doc.html).not.toContain('data-scrape-hidden');
+    } finally {
+      await strategy.close();
+    }
+  });
+});

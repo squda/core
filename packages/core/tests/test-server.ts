@@ -124,6 +124,41 @@ const DISCLOSURES = `<!doctype html>
   </script>
 </body></html>`;
 
+/**
+ * The two kinds of hidden, which must not be treated the same way.
+ *
+ * Overlays the page ships but is not showing are junk: taken out of the flow
+ * with `position: fixed`, or saying outright that they are a dialog. Hidden the
+ * way real sites hide them — a CSS class, not the `hidden` attribute — so
+ * extraction, which sees no stylesheet, would otherwise print them as headings.
+ *
+ * Collapsed content is not junk. The FAQ here is built the way myscheme.gov.in
+ * builds its own: a plain div with no role and no `aria-expanded`, which the
+ * expander cannot open and must therefore not delete.
+ *
+ * The hidden input is the third rule — it must survive into `html`, because
+ * Phase 4's form walker is supposed to find it.
+ */
+const HIDDEN_DIALOGS = `<!doctype html>
+<html><head><title>Hidden Dialogs</title>
+<style>
+  .overlay { display: none; position: fixed; inset: 0 }
+  .invisible-overlay { visibility: hidden; position: fixed; inset: 0 }
+  .collapsed { display: none }
+</style>
+</head><body>
+  <div class="overlay"><h3>SomethingWentWrong please try again later.</h3><button>Ok</button></div>
+  <div class="invisible-overlay"><p>AreYouSure you want to sign out?</p></div>
+  <div role="dialog" class="collapsed"><p>PleaseSignIn before applying.</p></div>
+
+  <article><h1>Real Article</h1>
+  ${'<p>This is the content a reader actually sees on the page, and the only part that should reach the markdown.</p>'.repeat(4)}
+  <div><p>Is there a deadline?</p><div class="collapsed"><p>CollapsedAnswer that no attribute marks as expandable.</p></div></div>
+  </article>
+
+  <form><input type="hidden" name="csrf" value="tok"><input name="email"></form>
+</body></html>`;
+
 /** Polls forever, so networkidle never arrives. */
 const NEVER_IDLE = `<!doctype html>
 <html><head><title>Never Idle</title></head><body>
@@ -156,6 +191,11 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/infinite') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(INFINITE);
+      return;
+    }
+    if (path === '/hidden-dialogs') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(HIDDEN_DIALOGS);
       return;
     }
     if (path === '/disclosures') {

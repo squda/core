@@ -167,6 +167,9 @@ export class BrowserStrategy implements FetchStrategy {
       // and after scrolling has appended whatever it is going to append.
       if (expand) await expandDisclosures(page);
 
+      // After expanding, so anything we just opened counts as visible.
+      await markInvisible(page);
+
       return {
         url,
         fetchedWith: 'browser',
@@ -248,6 +251,59 @@ async function dismissConsentBanner(page: Page): Promise<void> {
       continue;
     }
   }
+}
+
+/**
+ * Tag the dialogs a page ships but is not showing, for extraction to drop.
+ *
+ * A single page can carry a dozen of these — "Something went wrong", "Are you
+ * sure you want to sign out?", "You need to sign in before applying" — hidden
+ * with CSS. Extraction runs on HTML with no stylesheet and no layout, so to it
+ * those are ordinary headings, and they arrive at the top of the markdown as if
+ * the page had said them. Only a real browser can tell, and this is the one
+ * place in the pipeline that has one.
+ *
+ * ## Why not simply drop everything that is hidden
+ *
+ * Because most hidden text is *collapsed*, not junk. myscheme.gov.in builds its
+ * FAQ from plain `<div class="cursor-pointer">` with no role, no
+ * `aria-expanded`, nothing — so the expander cannot open it, and dropping every
+ * hidden element took all nine answers with it. Losing real content silently is
+ * a far worse failure than printing a stale dialog, and it is the one nobody
+ * notices.
+ *
+ * So the rule is narrow, and it is about *layout* rather than visibility alone:
+ * an overlay is taken out of the flow — `position: fixed` — or says outright
+ * that it is a dialog. Collapsed content sits in normal flow and is kept, junk
+ * and all.
+ *
+ * Marked, not removed, and that distinction is the contract: `html` stays what
+ * the browser actually had, so Phase 4's form walker still finds the hidden
+ * inputs it is supposed to find. Whether something is *prose* is extraction's
+ * decision, and it drops `[data-scrape-hidden]` along with the rest of the junk.
+ */
+async function markInvisible(page: Page): Promise<void> {
+  await page
+    .evaluate(() => {
+      // `display: none` is simply what these are, and one of them — JSON-LD —
+      // is content read on purpose.
+      const metadata = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'NOSCRIPT', 'TEMPLATE']);
+      const DIALOG = '[role="dialog"], [role="alertdialog"], [aria-modal="true"]';
+
+      for (const element of document.body.querySelectorAll<HTMLElement>('*')) {
+        if (metadata.has(element.tagName)) continue;
+        // Our own rescued panels are parked off-screen on purpose.
+        if (element.closest('#scrape-revealed')) continue;
+
+        const style = getComputedStyle(element);
+        if (style.display !== 'none' && style.visibility !== 'hidden') continue;
+
+        if (style.position === 'fixed' || element.matches(DIALOG)) {
+          element.setAttribute('data-scrape-hidden', '');
+        }
+      }
+    })
+    .catch(() => {});
 }
 
 /**
