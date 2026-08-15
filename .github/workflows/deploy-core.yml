@@ -43,13 +43,27 @@ jobs:
       - id: login
         uses: aws-actions/amazon-ecr-login@v2
 
+      # The Dockerfile pulls the Lambda web adapter from ECR Public, and
+      # anonymous pulls are capped per source IP. GitHub's runners are shared,
+      # so that quota is routinely already spent by someone else:
+      #
+      #   429 Too Many Requests — toomanyrequests: Data limit exceeded
+      #
+      # Signing in moves the pull onto this account's own, far larger quota.
+      # ECR Public lives only in us-east-1, whatever region the images go to.
+      - name: Sign in to ECR Public
+        run: |
+          aws ecr-public get-login-password --region us-east-1 \
+            | docker login --username AWS --password-stdin public.ecr.aws
+
       - name: Build and push
         env:
           REGISTRY: ${{ steps.login.outputs.registry }}
         run: |
-          # Two tags on one image: `latest` is what App Runner follows, and the
-          # commit sha is what makes a bad deploy diagnosable — without it every
-          # rollback question starts with "which build was that?".
+          # Two tags on one image: `latest` is what the Lambda function is
+          # pointed at, and the commit sha is what makes a bad deploy
+          # diagnosable — without it every rollback question starts with
+          # "which build was that?".
           docker build \
             -f packages/core/Dockerfile \
             -t "$REGISTRY/$ECR_REPOSITORY:latest" \
