@@ -22,11 +22,27 @@ import { cn } from '@/lib/utils';
  * Real urls, chosen so the four states are all one click away — including the
  * refusal, which is a normal outcome rather than a bug and is worth showing.
  */
+/**
+ * Chosen by measurement, not by taste — each was read through the same path
+ * `/demo` uses, and each earns its place by showing something the others do not.
+ *
+ *   a job application    22 fields, 18 named · the product's actual use case
+ *   a login form          2 fields · the simplest thing that works
+ *   a messy practice form 14 fields across all four trust levels
+ *   four forms at once    4 forms, 18 fields · a page is not one form
+ *   a government scheme   2 fields, 10k of markdown · needs a browser to see
+ *   a wikipedia article   no forms at all, which is an answer and not a failure
+ *
+ * Ordered strongest first: whichever a visitor clicks, the one above it is a
+ * better argument, and the first is the one that looks most like their problem.
+ */
 const EXAMPLES = [
+  { chip: 'a job application', url: 'https://job-boards.greenhouse.io/gitlab/jobs/8503792002' },
   { chip: 'a login form', url: 'https://the-internet.herokuapp.com/login' },
   { chip: 'a messy practice form', url: 'https://demoqa.com/automation-practice-form' },
+  { chip: 'four forms at once', url: 'https://www.w3schools.com/html/html_forms.asp' },
+  { chip: 'a government scheme', url: 'https://www.myscheme.gov.in/schemes/sui' },
   { chip: 'a wikipedia article', url: 'https://en.wikipedia.org/wiki/Web_scraping' },
-  { chip: 'a page that refuses us', url: 'https://stackoverflow.com/questions/11227809' },
 ];
 
 type Status =
