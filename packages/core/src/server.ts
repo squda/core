@@ -33,6 +33,35 @@ const pool = new BrowserPool({
   launchArgs: config.chromiumArgs,
 });
 
+/**
+ * Survive a browser that dies badly.
+ *
+ * Playwright reports some failures from a CDP callback rather than from the
+ * call you made, so they arrive as uncaught exceptions that no `try` around
+ * `fetch()` can see:
+ *
+ *     Error: Assertion error
+ *       at _CRSession._onMessage (playwright-core/lib/coreBundle.js:34801)
+ *       at Immediate.<anonymous>
+ *
+ * The default response to that is to exit, and for most services it should be.
+ * Here it means one bad page takes down every other request in flight and the
+ * next visitor pays a cold start — on Lambda, fifteen seconds of one — because
+ * a stranger's site crashed a renderer. The browser is the only component that
+ * throws this way, and the recovery for it is known: throw the browser away.
+ * The next request launches a fresh one.
+ *
+ * Deliberately not a general catch-all. It logs at error with the stack, so a
+ * real bug hiding here is visible in the logs rather than silently swallowed.
+ */
+process.on('uncaughtException', (error) => {
+  logger.error('uncaught exception — discarding the browser and staying up', {
+    error: error.message,
+    stack: error.stack,
+  });
+  void pool.close().catch(() => {});
+});
+
 const supabase = config.supabase
   ? createServiceClient(config.supabase.url, config.supabase.serviceRoleKey)
   : undefined;

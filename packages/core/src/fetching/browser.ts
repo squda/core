@@ -236,6 +236,17 @@ export class BrowserStrategy implements FetchStrategy {
 }
 
 /**
+ * Share of the budget the first attempt may spend.
+ *
+ * The rest is held back for the fallback, so the two together stay inside the
+ * caller's timeout. Weighted towards the first because that is the one expected
+ * to succeed: `networkidle` settles in a couple of seconds on most pages, and
+ * the fallback only has to wait for `domcontentloaded`, which has usually
+ * already happened by the time it runs.
+ */
+const FIRST_ATTEMPT_SHARE = 0.6;
+
+/**
  * Navigate, with a fallback for pages that never go quiet.
  *
  * `networkidle` is the only wait that reliably sees a rendered SPA, but a page
@@ -243,6 +254,13 @@ export class BrowserStrategy implements FetchStrategy {
  * reaches it, and waiting for something that will not happen is not a reason
  * to return nothing. On that timeout we settle for `domcontentloaded` and take
  * whatever has rendered, which is usually the whole page.
+ *
+ * Both attempts share one budget, and that is the whole subtlety here. Giving
+ * each the full `timeoutMs` — which is what this did originally — means a
+ * 30-second timeout can spend 60 seconds, and a caller who budgeted for the
+ * number they passed gets killed by whatever is enforcing it one layer up. On
+ * Lambda that arrived as a 60.3s invocation against a 60s limit: not a hung
+ * page, just arithmetic nobody had done.
  *
  * A timeout with no response at all is still a timeout, and still throws.
  */
@@ -252,14 +270,23 @@ async function navigate(
   waitUntil: 'domcontentloaded' | 'load' | 'networkidle',
   timeoutMs: number,
 ): Promise<Response_ | null> {
+  const deadline = Date.now() + timeoutMs;
+
   try {
-    return await page.goto(url, { waitUntil, timeout: timeoutMs });
+    return await page.goto(url, {
+      waitUntil,
+      timeout: Math.round(timeoutMs * FIRST_ATTEMPT_SHARE),
+    });
   } catch (error) {
     if (waitUntil !== 'networkidle' || !(error instanceof Error) || error.name !== 'TimeoutError') {
       throw error;
     }
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw error;
+
     // Already navigated; this resolves against the load that did happen.
-    return page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+    return page.goto(url, { waitUntil: 'domcontentloaded', timeout: remaining });
   }
 }
 
