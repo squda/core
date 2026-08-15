@@ -51,6 +51,13 @@ export interface BrowserFetchOptions extends FetchOptions {
    */
   scrollPasses?: number;
   /**
+   * Flags passed to Chromium at launch. See `CONTAINER_CHROMIUM_ARGS`.
+   *
+   * Set on the strategy rather than per fetch: the browser is launched once and
+   * shared, so the first caller's flags would silently become everyone's.
+   */
+  launchArgs?: string[];
+  /**
    * Open tabs, accordions and `<details>` before reading the page.
    *
    * On by default, unlike `scrollPasses`, and the difference is what each one
@@ -93,6 +100,24 @@ const CONSENT_SELECTORS = [
  * rather than as anything resembling a consent bug.
  */
 const CONSENT_CLICK_TIMEOUT_MS = 1_000;
+
+/**
+ * Chromium flags a container needs and a laptop does not.
+ *
+ * `--no-sandbox` because a hardened runtime — Cloud Run, Fly, most Kubernetes —
+ * denies the syscalls Chromium's own sandbox is built from, and it refuses to
+ * start rather than run unsandboxed by accident. Dropping it is safe only
+ * because the container is already the sandbox.
+ *
+ * `--disable-dev-shm-usage` because Docker gives `/dev/shm` 64MB by default and
+ * Chromium will happily want more. Without it a page crashes partway through
+ * rendering and the failure looks like a timeout, which sends you looking in
+ * entirely the wrong place.
+ *
+ * Off by default, opt-in through `CHROMIUM_ARGS`, because a laptop needs
+ * neither and `--no-sandbox` is not something to switch on quietly.
+ */
+export const CONTAINER_CHROMIUM_ARGS = ['--no-sandbox', '--disable-dev-shm-usage'];
 
 export class BrowserStrategy implements FetchStrategy {
   readonly name = 'browser';
@@ -193,7 +218,13 @@ export class BrowserStrategy implements FetchStrategy {
 
   /** Launched on first use, so constructing a strategy costs nothing. */
   async #launch(): Promise<Browser> {
-    this.#browser ??= chromium.launch({ headless: true });
+    const args = this.defaults.launchArgs ?? [];
+    this.#browser ??= chromium.launch({
+      headless: true,
+      // Spread rather than passing `[]`, so the default launch is byte-for-byte
+      // what it was before this option existed.
+      ...(args.length > 0 ? { args } : {}),
+    });
     return this.#browser;
   }
 

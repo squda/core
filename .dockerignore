@@ -1,0 +1,32 @@
+# The build context is the repository root, so this is what keeps a 1.4MB
+# fixture set and every node_modules out of the image.
+
+node_modules
+**/node_modules
+
+.git
+.github
+
+# Never in an image, and .env especially: the service role key bypasses row
+# level security, and a layer is not a secret.
+.env
+.env.*
+!.env.example
+
+# apps/web is deployed separately. Its manifest is copied explicitly by the
+# Dockerfile; nothing else from it is wanted.
+apps/web/*
+!apps/web/package.json
+
+# Tests, fixtures and the fixture grabber never run in production.
+packages/core/tests
+packages/core/fixtures
+packages/core/scripts
+packages/core/vitest.browser.config.ts
+**/*.test.ts
+
+.cache
+dist
+.next
+*.log
+.DS_Store

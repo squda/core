@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { chromium } from 'playwright';
-import { BrowserStrategy } from '../src/fetching/browser.js';
+import { BrowserStrategy, CONTAINER_CHROMIUM_ARGS } from '../src/fetching/browser.js';
 import { HttpStrategy } from '../src/fetching/http.js';
 import {
   FetchTimeoutError,
@@ -393,6 +393,22 @@ describe('dialogs the page ships but does not show', () => {
       const doc = await strategy.fetch(`${server.origin}/`);
 
       expect(doc.html).not.toContain('data-scrape-hidden');
+    } finally {
+      await strategy.close();
+    }
+  });
+});
+
+describe('launch flags for a container', () => {
+  // --no-sandbox is what a hardened runtime needs and a laptop does not, so it
+  // has to be provable that passing it still produces a working browser.
+  it('launches and fetches with the container flags applied', async () => {
+    const strategy = new BrowserStrategy({ launchArgs: CONTAINER_CHROMIUM_ARGS });
+    try {
+      const doc = await strategy.fetch(`${server.origin}/`);
+
+      expect(doc.status).toBe(200);
+      expect(doc.html).toContain('Static Article');
     } finally {
       await strategy.close();
     }

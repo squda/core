@@ -6,6 +6,7 @@
   "scripts": {
     "scrape": "tsx src/cli.ts",
     "serve": "tsx --env-file-if-exists=../../.env src/server.ts",
+    "start": "tsx src/server.ts",
     "dev": "tsx --watch --env-file-if-exists=../../.env src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,6 +22,8 @@
     "domhandler": "^6.0.1",
     "hono": "^4.13.2",
     "jsdom": "^24.1.0",
+    "playwright": "^1.62.1",
+    "tsx": "^4.16.0",
     "turndown": "^7.2.0",
     "zod": "^3.23.8"
   },
@@ -28,8 +31,6 @@
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.5.0",
     "@types/turndown": "^5.0.4",
-    "playwright": "^1.62.1",
-    "tsx": "^4.16.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   },

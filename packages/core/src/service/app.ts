@@ -209,7 +209,23 @@ export function createApp({
     const { HttpStrategy } = await import('../fetching/http.js');
     const normalised = normaliseUrl(url);
 
-    if (browser === 'always') {
+    /*
+     * Through the pool, never `new BrowserStrategy()`.
+     *
+     * Two things go wrong when this path builds its own. It launches and kills
+     * a Chromium per request, which is the exact cost the pool exists to
+     * remove and which the concurrency cap then cannot bound. And it is
+     * constructed with no options, so the launch flags a container needs —
+     * `--no-sandbox` above all — never reach it, and the service works on a
+     * laptop and refuses to start a browser in production.
+     *
+     * A pool is optional here because a test may not want one; falling back to
+     * a one-off strategy keeps that working, and is the only case that should
+     * ever construct one.
+     */
+    async function withBrowser() {
+      if (pool) return pool.fetch(normalised);
+
       const { BrowserStrategy } = await import('../fetching/browser.js');
       const strategy = new BrowserStrategy();
       try {
@@ -219,6 +235,8 @@ export function createApp({
       }
     }
 
+    if (browser === 'always') return withBrowser();
+
     const document = await new HttpStrategy().fetch(normalised);
     if (browser === 'never') return document;
 
@@ -227,13 +245,7 @@ export function createApp({
     const { scrapeHtml } = await import('../core/scrape.js');
     if (!judge(document, scrapeHtml(document)).needsBrowser) return document;
 
-    const { BrowserStrategy } = await import('../fetching/browser.js');
-    const strategy = new BrowserStrategy();
-    try {
-      return await strategy.fetch(normalised);
-    } finally {
-      await strategy.close();
-    }
+    return withBrowser();
   }
 
   const queue = new JobQueue(

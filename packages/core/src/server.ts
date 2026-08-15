@@ -27,7 +27,11 @@ const logger = new Logger({ service: 'scrape' }, { level: config.logLevel });
 
 // A service keeps the browser warm between requests; the cap is what stops a
 // burst of SPA urls from becoming a burst of Chromiums.
-const pool = new BrowserPool({ maxConcurrent: config.browserConcurrency, idleMs: 30_000 });
+const pool = new BrowserPool({
+  maxConcurrent: config.browserConcurrency,
+  idleMs: 30_000,
+  launchArgs: config.chromiumArgs,
+});
 
 const supabase = config.supabase
   ? createServiceClient(config.supabase.url, config.supabase.serviceRoleKey)

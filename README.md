@@ -152,3 +152,22 @@ never needed it.
 
 The web app needs its own `apps/web/.env.local`; Next reads env files from its own directory and
 cannot see the root `.env`. See `apps/web/.env.example`.
+
+## Deploying
+
+```console
+$ podman build -f packages/core/Dockerfile -t squda-core .   # or docker
+$ podman run -p 8080:8080 --env-file .env squda-core
+```
+
+Built from the repository root, because that is where the workspace lockfile lives. The base image
+is Playwright's own, pinned to the exact library version in `package.json` — a floating tag becomes
+`Executable doesn't exist at /ms-playwright/chromium-…` on some future rebuild, with nothing in the
+diff to explain it. Bump both together or neither.
+
+The Dockerfile sets `CHROMIUM_ARGS=--no-sandbox,--disable-dev-shm-usage`, which a container needs
+and a laptop does not. `PORT` is read from the environment, so Cloud Run, Render and Fly all work
+without changes.
+
+`apps/web` deploys separately as an ordinary Next.js app, and needs `SCRAPE_SERVICE_URL` pointing
+at wherever the service landed.

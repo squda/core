@@ -76,6 +76,24 @@ export const ConfigSchema = z.object({
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
     ),
+
+  /**
+   * Chromium launch flags, comma-separated. Empty on a laptop.
+   *
+   * A container almost always needs `--no-sandbox,--disable-dev-shm-usage`;
+   * see `CONTAINER_CHROMIUM_ARGS` for why each one, and why neither is a
+   * default. The Dockerfile sets this, so nothing has to be remembered at
+   * deploy time.
+   */
+  chromiumArgs: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((flag) => flag.trim())
+        .filter((flag) => flag.length > 0),
+    ),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -98,6 +116,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     supabase,
     requireAuth: env.REQUIRE_AUTH,
     corsOrigins: env.CORS_ORIGINS,
+    chromiumArgs: env.CHROMIUM_ARGS,
   });
 
   if (!parsed.success) {

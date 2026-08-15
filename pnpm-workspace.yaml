@@ -1,3 +1,18 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+
+# pnpm does not run a dependency's install scripts unless it is named here: a
+# package that compiles or downloads something at install time is arbitrary
+# code, and refusing by default is the right call.
+#
+# esbuild is the one this project needs. It fetches its own platform binary,
+# tsx is built on it, and both entry points run through tsx. Left out, the
+# failure is a warning that is easy to scroll past locally and a hard error in
+# a container build.
+#
+# Here rather than in package.json's `pnpm` field because pnpm 11 stopped
+# reading that field, and a setting that silently stops applying is worse than
+# one that was never set.
+onlyBuiltDependencies:
+  - esbuild

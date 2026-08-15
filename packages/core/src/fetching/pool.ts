@@ -27,20 +27,29 @@ export interface BrowserPoolOptions {
    * long-lived service sets this so consecutive requests skip the launch.
    */
   idleMs?: number;
+  /**
+   * Chromium launch flags, handed to the strategy the pool builds.
+   *
+   * Here rather than on `fetch()` because the pool launches one browser and
+   * keeps it: flags belong to the browser's lifetime, not to a request.
+   */
+  launchArgs?: string[];
 }
 
 export class BrowserPool {
   readonly #limiter: Limiter;
   readonly #idleMs: number;
+  readonly #launchArgs: string[];
 
   #strategy: FetchStrategy | null = null;
   #starting: Promise<FetchStrategy> | null = null;
   #idleTimer: NodeJS.Timeout | null = null;
   #launches = 0;
 
-  constructor({ maxConcurrent = 2, idleMs = 0 }: BrowserPoolOptions = {}) {
+  constructor({ maxConcurrent = 2, idleMs = 0, launchArgs = [] }: BrowserPoolOptions = {}) {
     this.#limiter = new Limiter(maxConcurrent);
     this.#idleMs = idleMs;
+    this.#launchArgs = launchArgs;
   }
 
   stats(): { active: number; queued: number; launches: number; open: boolean } {
@@ -84,7 +93,7 @@ export class BrowserPool {
     this.#starting ??= (async () => {
       const { BrowserStrategy } = await import('./browser.js');
       this.#launches += 1;
-      return new BrowserStrategy();
+      return new BrowserStrategy({ launchArgs: this.#launchArgs });
     })();
 
     this.#strategy = await this.#starting;
