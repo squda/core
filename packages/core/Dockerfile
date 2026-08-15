@@ -55,6 +55,30 @@ ENV CHROMIUM_ARGS="--no-sandbox,--disable-dev-shm-usage"
 ENV PORT=8080
 EXPOSE 8080
 
+# Everything below is what Lambda needs, and none of it changes the image
+# anywhere else.
+#
+# The adapter is a Lambda extension that speaks the Runtime API on one side and
+# plain HTTP to localhost on the other, so an ordinary server runs on Lambda
+# unmodified. Outside Lambda it is a file in /opt/extensions that nothing ever
+# executes, which is why one image can serve both.
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 /lambda-adapter /opt/extensions/lambda-adapter
+ENV AWS_LWA_PORT=8080
+# Without this the adapter probes / — which this service does not serve — and
+# decides the app never came up.
+ENV AWS_LWA_READINESS_CHECK_PATH=/health
+
+# Lambda mounts everything read-only except /tmp, and Chromium wants somewhere
+# to write: a profile directory, a crashpad database, font caches. Left to
+# default it aims at $HOME and fails to launch, which surfaces as a timeout
+# rather than a permissions error.
+#
+# Harmless off Lambda — a writable /tmp is not a thing containers lack.
+ENV HOME=/tmp
+ENV TMPDIR=/tmp
+ENV XDG_CACHE_HOME=/tmp/.cache
+ENV XDG_CONFIG_HOME=/tmp/.config
+
 # The base image ships this user. Chromium started as root is a bigger blast
 # radius than the job needs.
 USER pwuser
