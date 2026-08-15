@@ -25,6 +25,27 @@ export const ConfigSchema = z.object({
   maxQueued: z.coerce.number().int().positive().default(100),
 
   /**
+   * How long one fetch may take, for the authenticated endpoints.
+   *
+   * Raise it when getting the page matters more than getting it quickly — a
+   * slow government site, a page behind three redirects. Then raise whatever
+   * enforces a limit above this too, and leave it about fifteen seconds of
+   * room: an `auto` scrape can spend this on HTTP *and* again on the browser,
+   * and then dismiss consent and expand tabs on top. On Lambda a function
+   * timeout below that arrives as a 502 with nothing in it that says "slow
+   * page", which is a bad way to learn you were nearly finished.
+   */
+  fetchTimeoutMs: z.coerce.number().int().positive().default(30_000),
+  /**
+   * The same, for the public `/demo` endpoint, and deliberately shorter.
+   *
+   * A visitor watching a spinner is a different constraint from a client that
+   * wants the page. Thirty seconds of nothing on a waitlist page is a closed
+   * tab, so the demo gives up while there is still someone to give up on.
+   */
+  demoTimeoutMs: z.coerce.number().int().positive().default(20_000),
+
+  /**
    * The open `/demo` endpoint: reads per caller per window.
    *
    * Everything else needs a token. This one is what the public waitlist page
@@ -110,6 +131,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     browserConcurrency: env.BROWSER_CONCURRENCY,
     jobConcurrency: env.JOB_CONCURRENCY,
     maxQueued: env.MAX_QUEUED,
+    fetchTimeoutMs: env.FETCH_TIMEOUT_MS,
+    demoTimeoutMs: env.DEMO_TIMEOUT_MS,
     demoRateLimit: env.DEMO_RATE_LIMIT,
     demoWindowMs: env.DEMO_WINDOW_MS,
     allowPrivate: env.SCRAPE_ALLOW_PRIVATE,

@@ -104,6 +104,17 @@ export interface AppOptions {
    * requests would be ten Chromiums.
    */
   pool?: BrowserPool;
+  /**
+   * How long one fetch may take on the authenticated endpoints. 30s default.
+   *
+   * Whatever enforces a limit above this — Lambda, a proxy, a client — needs
+   * roughly fifteen seconds more than this number, because an `auto` scrape can
+   * spend it twice (HTTP, then browser) and still has consent and expansion to
+   * do afterwards.
+   */
+  fetchTimeoutMs?: number;
+  /** The same for `/demo`, shorter: a visitor is watching. 20s default. */
+  demoTimeoutMs?: number;
   /** Jobs run at once. Distinct from the browser cap, which is stricter. */
   jobConcurrency?: number;
   /** Jobs allowed to wait. Beyond this the service answers 429 rather than growing. */
@@ -155,6 +166,8 @@ export function createApp({
   scrape = defaultScrape,
   cache = null,
   pool,
+  fetchTimeoutMs = 30_000,
+  demoTimeoutMs = 20_000,
   jobConcurrency = 4,
   maxQueued = 100,
   jobStore,
@@ -182,6 +195,7 @@ export function createApp({
 
     const document = await scrape(url, {
       browser: browser as ScrapeRequest['browser'],
+      timeoutMs: fetchTimeoutMs,
       ...(pool ? { pool } : {}),
       ...(signal ? { signal } : {}),
       // scrape()'s own narration, stamped with this request's id.
@@ -205,7 +219,7 @@ export function createApp({
    * throws its controls away — so this cannot come from the document cache,
    * which stores Markdown.
    */
-  async function fetchDocument(url: string, browser: string) {
+  async function fetchDocument(url: string, browser: string, timeoutMs: number) {
     const { HttpStrategy } = await import('../fetching/http.js');
     const normalised = normaliseUrl(url);
 
@@ -224,12 +238,12 @@ export function createApp({
      * ever construct one.
      */
     async function withBrowser() {
-      if (pool) return pool.fetch(normalised);
+      if (pool) return pool.fetch(normalised, { timeoutMs });
 
       const { BrowserStrategy } = await import('../fetching/browser.js');
       const strategy = new BrowserStrategy();
       try {
-        return await strategy.fetch(normalised);
+        return await strategy.fetch(normalised, { timeoutMs });
       } finally {
         await strategy.close();
       }
@@ -237,7 +251,7 @@ export function createApp({
 
     if (browser === 'always') return withBrowser();
 
-    const document = await new HttpStrategy().fetch(normalised);
+    const document = await new HttpStrategy().fetch(normalised, { timeoutMs });
     if (browser === 'never') return document;
 
     // Same rule the scraper uses: an empty shell means the page builds itself.
@@ -369,7 +383,7 @@ export function createApp({
     }
 
     try {
-      const document = await fetchDocument(url, browser);
+      const document = await fetchDocument(url, browser, fetchTimeoutMs);
       const spec = extractForms(document);
       log(context).info('form spec', {
         url,
@@ -441,7 +455,7 @@ export function createApp({
       // One fetch, read twice. The walker needs the original HTML, which
       // extraction throws away, so this cannot go through scrapeOnce's cache —
       // but fetchDocument sits behind the same SSRF guard and browser pool.
-      const document = await fetchDocument(url, browser);
+      const document = await fetchDocument(url, browser, demoTimeoutMs);
       const spec = extractForms(document);
       const scraped = scrapeHtml(document);
 

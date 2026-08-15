@@ -59,6 +59,21 @@ export interface ScrapeOptions {
   pool?: BrowserPool;
   /** Cancels the whole scrape, including a browser retry already under way. */
   signal?: AbortSignal;
+  /**
+   * How long a single fetch may take, in milliseconds. 30 seconds by default.
+   *
+   * Per fetch, not per scrape: an `auto` run that escalates spends this on the
+   * HTTP attempt and again on the browser. The browser attempt is the one worth
+   * budgeting for — it divides this between waiting for the page to go quiet
+   * and a fallback for pages that never do, so the two together stay inside it.
+   *
+   * Anything enforcing a limit above this — Lambda's function timeout, a load
+   * balancer, a client — has to allow for the escalation and for the work after
+   * the page loads: dismissing consent, expanding tabs. Leave it fifteen
+   * seconds of room and a slow page reports a timeout instead of being killed
+   * mid-sentence by something that cannot say why.
+   */
+  timeoutMs?: number;
 }
 
 const httpStrategy = new HttpStrategy();
@@ -74,8 +89,18 @@ export async function scrape(
   rawUrl: string,
   options: ScrapeOptions = {},
 ): Promise<ScrapedDocument> {
-  const { browser = 'auto', strategy, log = () => {}, pool = defaultBrowserPool, signal } = options;
-  const fetchOptions = signal ? { signal } : {};
+  const {
+    browser = 'auto',
+    strategy,
+    log = () => {},
+    pool = defaultBrowserPool,
+    signal,
+    timeoutMs,
+  } = options;
+  const fetchOptions = {
+    ...(signal ? { signal } : {}),
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  };
   const url = normaliseUrl(rawUrl);
 
   if (strategy) {
@@ -114,7 +139,7 @@ async function scrapeWithBrowser(
   pool: BrowserPool,
   log: (message: string) => void,
   reason: string,
-  fetchOptions: { signal?: AbortSignal },
+  fetchOptions: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<ScrapedDocument> {
   const { queued } = pool.stats();
   log(`retrying with a browser — ${reason}${queued > 0 ? ` (${queued} waiting)` : ''}`);

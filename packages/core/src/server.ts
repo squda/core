@@ -91,6 +91,8 @@ serve({
     ...(supabase ? { supabase } : {}),
     ...(jobStore ? { jobStore } : {}),
     requireAuth: config.requireAuth ?? false,
+    fetchTimeoutMs: config.fetchTimeoutMs,
+    demoTimeoutMs: config.demoTimeoutMs,
     jobConcurrency: config.jobConcurrency,
     maxQueued: config.maxQueued,
     corsOrigins: config.corsOrigins,
