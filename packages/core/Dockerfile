@@ -83,4 +83,18 @@ ENV XDG_CONFIG_HOME=/tmp/.config
 # radius than the job needs.
 USER pwuser
 
-CMD ["pnpm", "--filter", "@untitled/core", "start"]
+# tsx directly, not `pnpm start`.
+#
+# pnpm is a build-time tool here, and invoking it at runtime made corepack
+# fetch pnpm from npm on *every cold start* — several seconds, before the
+# server had begun. On Lambda, where init gets ten seconds, that alone was the
+# difference between ready and `Status: timeout`, and the symptom was a 502
+# that looked nothing like a slow download:
+#
+#     ! Corepack is about to download .../pnpm-10.13.1.tgz
+#     INIT_REPORT Init Duration: 9993.37 ms Phase: init Status: timeout
+#
+# Two processes and a network round trip removed. Anywhere else this is simply
+# a faster start.
+WORKDIR /app/packages/core
+CMD ["node_modules/.bin/tsx", "src/server.ts"]
