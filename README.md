@@ -7,6 +7,7 @@ filling project. See [PLAN.md](./PLAN.md) for where it's going.
 packages/schema/   FormSpec — the contract. Zod and types, nothing else.
 packages/core/     the scraper, the fetch strategies, the HTTP service.
 apps/web/          paste a url, see every field on the page and where its name came from.
+deploy/            what runs on the instance when a deploy happens.
 ```
 
 `pnpm serve` runs the service, `pnpm web` runs the demo against it, `pnpm dev` runs both.
@@ -155,39 +156,54 @@ cannot see the root `.env`. See `apps/web/.env.example`.
 
 ## Deploying
 
-One Dockerfile, two runtimes. Podman locally, Docker where it deploys — the file is plain
-Dockerfile syntax with nothing specific to either.
+Pushing to `main` deploys. `.github/workflows/deploy-core.yml` builds the image, pushes it to ECR,
+and tells the instance to pull and restart — through SSM rather than SSH, so there is no key to
+store, rotate or leak, and port 22 stays shut.
+
+```
+push to main ─► build (arm64) ─► ECR ─► SSM ─► pull, restart, curl /health
+```
+
+Deploys pin the commit sha, never `latest`: two deploys of `latest` are indistinguishable
+afterwards, and the first question when something breaks is which build is actually running. The
+`latest` tag exists for a human pulling by hand.
+
+`deploy/ec2-deploy.sh` is what runs on the instance. It lives here rather than on the box so that
+how a deploy happens is visible in the diff. It pulls before stopping anything — a failed pull then
+leaves the running service alone instead of stopping it and finding nothing to start — and it curls
+`/health` at the end, because a container that crashes on boot still reports "Up" for a second or
+two, and a green deploy on that is worse than a red one.
+
+The instance is a `t4g.small` running Amazon Linux 2023. ARM, which is why the workflow builds on
+`ubuntu-24.04-arm`: native rather than emulated, because QEMU has to run a pnpm install and unpack
+a 3GB Playwright image, and that takes long enough to become its own problem. Both halves have to
+agree — an arm64 image on an x86 host answers `exec format error`, a message that says nothing
+about architecture and sends you reading the entrypoint.
+
+Secrets live in `/opt/squda.env` on the instance, not in the image and not in the repository. The
+container runs under `--restart unless-stopped`, which is the recovery path for the one failure
+this service cannot catch: Playwright reports some browser crashes from a CDP callback rather than
+from the call you made, so they arrive as uncaught exceptions and take the process with them.
+Nothing in the code can catch those, and a process manager restarting a fresh container in two
+seconds beats a service still running with a browser it no longer trusts.
+
+### Building it by hand
 
 ```console
-$ podman build -f packages/core/Dockerfile -t squda-core .   # local
+$ podman build -f packages/core/Dockerfile -t squda-core .   # or docker
 $ podman run -p 8080:8080 --env-file .env squda-core
 ```
 
-Built from the repository root, because that is where the workspace lockfile lives. The base image
-is Playwright's own, pinned to the exact library version in `package.json` — a floating tag becomes
+From the repository root, because that is where the workspace lockfile lives. The base image is
+Playwright's own, pinned to the exact library version in `package.json` — a floating tag becomes
 `Executable doesn't exist at /ms-playwright/chromium-…` on some future rebuild, with nothing in the
 diff to explain it. Bump both together or neither.
 
-**Building on an Apple Silicon machine to push somewhere else needs `--platform linux/amd64`.**
-Podman and Docker both build for the host by default, so an image built here is arm64, and a host
-expecting amd64 answers with `exec format error` — a message that says nothing about architecture
-and sends you looking at the entrypoint. Building on the platform instead (Cloud Build, Render, a
-GitHub Action) sidesteps it entirely, which is the better answer when it is available.
+Both runtimes build for the host, so an image built on an Apple Silicon machine is arm64. That
+happens to be what the instance wants; anything x86 needs `--platform linux/amd64`.
 
 The Dockerfile sets `CHROMIUM_ARGS=--no-sandbox,--disable-dev-shm-usage`, which a container needs
 and a laptop does not.
-
-On a server, run it under a restart policy:
-
-```console
-$ docker run -d --restart unless-stopped -p 80:8080 --env-file .env squda-core
-```
-
-That is the recovery path for the one failure this service cannot catch: Playwright reports some
-browser crashes from a CDP callback rather than from the call you made, so they arrive as uncaught
-exceptions and take the process with them. Nothing in the code can catch those — and a process
-manager restarting a fresh container in two seconds is a better answer than a service that keeps
-running with a browser it no longer trusts.
 
 `apps/web` deploys separately as an ordinary Next.js app, and needs `SCRAPE_SERVICE_URL` pointing
 at wherever the service landed.
