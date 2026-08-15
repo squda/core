@@ -56,6 +56,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Which principal these credentials actually belong to. Cheap, and it
+      # settles the question a permissions error cannot: an IAM policy attached
+      # to the user you think you are using explains nothing if the keys in the
+      # repository belong to a different one.
+      - name: Who am I
+        run: aws sts get-caller-identity
+
       - id: login
         uses: aws-actions/amazon-ecr-login@v2
 
