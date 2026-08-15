@@ -30,7 +30,19 @@ env:
 
 jobs:
   push:
-    runs-on: ubuntu-latest
+    # ARM, to match a Graviton instance (t4g), which is around 20% cheaper than
+    # the x86 equivalent for the same 2GB.
+    #
+    # Native rather than emulated, and that distinction is the whole reason this
+    # is a runner choice instead of a `--platform` flag: QEMU-emulating an arm64
+    # build on an x86 runner has to run a pnpm install and unpack a 3GB
+    # Playwright image through the emulator, which takes long enough to be its
+    # own problem.
+    #
+    # If this label is not available on the account's plan the job fails
+    # immediately with "no runner matching labels" — put `ubuntu-latest` back
+    # and run the service on a t3 instance instead.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
