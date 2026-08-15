@@ -155,8 +155,11 @@ cannot see the root `.env`. See `apps/web/.env.example`.
 
 ## Deploying
 
+One Dockerfile, two runtimes. Podman locally, Docker where it deploys — the file is plain
+Dockerfile syntax with nothing specific to either.
+
 ```console
-$ podman build -f packages/core/Dockerfile -t squda-core .   # or docker
+$ podman build -f packages/core/Dockerfile -t squda-core .   # local
 $ podman run -p 8080:8080 --env-file .env squda-core
 ```
 
@@ -164,6 +167,12 @@ Built from the repository root, because that is where the workspace lockfile liv
 is Playwright's own, pinned to the exact library version in `package.json` — a floating tag becomes
 `Executable doesn't exist at /ms-playwright/chromium-…` on some future rebuild, with nothing in the
 diff to explain it. Bump both together or neither.
+
+**Building on an Apple Silicon machine to push somewhere else needs `--platform linux/amd64`.**
+Podman and Docker both build for the host by default, so an image built here is arm64, and a host
+expecting amd64 answers with `exec format error` — a message that says nothing about architecture
+and sends you looking at the entrypoint. Building on the platform instead (Cloud Build, Render, a
+GitHub Action) sidesteps it entirely, which is the better answer when it is available.
 
 The Dockerfile sets `CHROMIUM_ARGS=--no-sandbox,--disable-dev-shm-usage`, which a container needs
 and a laptop does not. `PORT` is read from the environment, so Cloud Run, Render and Fly all work

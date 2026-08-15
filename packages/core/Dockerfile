@@ -6,6 +6,11 @@
 #     docker build -f packages/core/Dockerfile -t squda-core .
 #     docker run -p 8080:8080 --env-file .env squda-core
 #
+# Podman builds this identically — nothing below is specific to either runtime.
+# What does differ is the host: both build for the machine they run on, so an
+# image built on Apple Silicon is arm64 and an amd64 host will answer with
+# `exec format error`. Pass --platform linux/amd64, or build on the platform.
+#
 # The base image is Playwright's own, pinned to the exact library version in
 # package.json. That pin is the point: Playwright downloads a specific Chromium
 # build and refuses to drive any other, so a floating tag turns into
