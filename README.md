@@ -29,6 +29,12 @@ $ pnpm scrape https://excalidraw.com/ --verbose
 · fetched with browser — 556 characters of markdown
 ```
 
+Content behind a click comes too. Tabs, accordions and `<details>` are opened before the page
+is read, and a tab panel the page unmounts when you open the next one is collected while it is
+still on screen. Only elements that declare themselves as disclosures are touched — `<details>`,
+`aria-expanded`, `role="tab"` — so a button that merely says "Show more", or "Sign out", is left
+alone. See `src/fetching/expand.ts`.
+
 ## Usage
 
 ```

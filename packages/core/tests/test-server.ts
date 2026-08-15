@@ -73,6 +73,57 @@ const INFINITE = `<!doctype html>
   </script>
 </body></html>`;
 
+/**
+ * Content behind clicks, in the three shapes the web actually uses.
+ *
+ * The tab panels are *unmounted* rather than hidden, which is the hard case:
+ * reading the DOM at the end sees only whichever tab was opened last, so the
+ * expander has to collect each panel while it is on screen.
+ *
+ * The sign-out button is the control that must still be there, unclicked, when
+ * the page is read. It is a plain button with plain text, which is exactly what
+ * a "click anything that says Show more" rule would eventually reach.
+ */
+const DISCLOSURES = `<!doctype html>
+<html><head><title>Behind A Click</title></head><body>
+  <article>
+    <h1>Behind A Click</h1>
+
+    <div role="tablist">
+      <button role="tab" aria-selected="true" aria-controls="panel-a" onclick="show('a')">Overview</button>
+      <button role="tab" aria-selected="false" aria-controls="panel-b" onclick="show('b')">Eligibility</button>
+      <button role="tab" aria-selected="false" aria-controls="panel-c" onclick="show('c')">Documents</button>
+    </div>
+    <div id="panels"><div id="panel-a"><p>OverviewOnly for the first tab.</p></div></div>
+
+    <button aria-expanded="false" aria-controls="acc" onclick="
+      this.setAttribute('aria-expanded', 'true');
+      document.getElementById('acc').hidden = false;
+    ">How do I apply?</button>
+    <div id="acc" hidden><p>AccordionOnly that was hidden until asked for.</p></div>
+
+    <details><summary>Fine print</summary><p>DetailsOnly nobody reads.</p></details>
+
+    <button onclick="document.body.innerHTML = '<p>SignedOutNow</p>'">Sign out</button>
+  </article>
+  <script>
+    const bodies = {
+      a: '<p>OverviewOnly for the first tab.</p>',
+      b: '<p>EligibilityOnly that only tab two has.</p>',
+      c: '<p>DocumentsOnly that only tab three has.</p>',
+    };
+    function show(which) {
+      // Replaces the panel rather than hiding it — the previous tab's content
+      // is gone from the DOM entirely once another is opened.
+      document.getElementById('panels').innerHTML =
+        '<div id="panel-' + which + '">' + bodies[which] + '</div>';
+      for (const tab of document.querySelectorAll('[role="tab"]')) {
+        tab.setAttribute('aria-selected', String(tab.getAttribute('aria-controls') === 'panel-' + which));
+      }
+    }
+  </script>
+</body></html>`;
+
 /** Polls forever, so networkidle never arrives. */
 const NEVER_IDLE = `<!doctype html>
 <html><head><title>Never Idle</title></head><body>
@@ -105,6 +156,11 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/infinite') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(INFINITE);
+      return;
+    }
+    if (path === '/disclosures') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(DISCLOSURES);
       return;
     }
     if (path === '/never-idle') {

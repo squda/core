@@ -11,6 +11,7 @@ import {
   NetworkError,
   UnsupportedContentTypeError,
 } from '../core/errors.js';
+import { expandDisclosures } from './expand.js';
 import { assertFetchable } from './ssrf.js';
 import { USER_AGENT } from './user-agent.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
@@ -49,6 +50,19 @@ export interface BrowserFetchOptions extends FetchOptions {
    * a "load everything" — there is no everything.
    */
   scrollPasses?: number;
+  /**
+   * Open tabs, accordions and `<details>` before reading the page.
+   *
+   * On by default, unlike `scrollPasses`, and the difference is what each one
+   * costs when it is not needed. A scroll pass always spends its half-second;
+   * this is one `querySelectorAll` on a page with no disclosures, and on a page
+   * with them it is the difference between one tab and the whole document.
+   *
+   * See `expand.ts` for why clicking a stranger's page is safe here — briefly:
+   * only elements that declare themselves as disclosures, in a context with no
+   * cookies and so no session to act on.
+   */
+  expand?: boolean;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -99,6 +113,7 @@ export class BrowserStrategy implements FetchStrategy {
       waitUntil = 'networkidle',
       dismissConsent = true,
       scrollPasses = 0,
+      expand = true,
       allowPrivate,
     } = { ...this.defaults, ...options };
 
@@ -148,6 +163,9 @@ export class BrowserStrategy implements FetchStrategy {
 
       if (dismissConsent) await dismissConsentBanner(page);
       if (scrollPasses > 0) await scrollThrough(page, scrollPasses);
+      // Last, so it acts on the whole page: after the consent overlay is gone,
+      // and after scrolling has appended whatever it is going to append.
+      if (expand) await expandDisclosures(page);
 
       return {
         url,

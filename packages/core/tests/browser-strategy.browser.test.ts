@@ -238,3 +238,97 @@ describe('failures map to the same taxonomy as the HTTP path', () => {
     }
   });
 });
+
+describe('content that is only there after a click', () => {
+  it('opens tabs, accordions and details, and keeps what each revealed', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/disclosures`);
+      const markdown = scrapeHtml(doc).markdown;
+
+      // The tab that was open on arrival.
+      expect(markdown).toContain('OverviewOnly');
+      // The two that were not — and whose panels the page unmounts as soon as
+      // another tab opens, so these only survive if they were collected while
+      // on screen rather than read off the final DOM.
+      expect(markdown).toContain('EligibilityOnly');
+      expect(markdown).toContain('DocumentsOnly');
+      // aria-expanded, and <details>.
+      expect(markdown).toContain('AccordionOnly');
+      expect(markdown).toContain('DetailsOnly');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  /**
+   * The accordion's panel stays in the DOM once opened, so the copy taken to
+   * rescue it from being unmounted is a copy of something that was never lost.
+   * Keeping both prints the section twice, which reads as a scraper bug rather
+   * than a quirk of the page.
+   */
+  it('prints each revealed section once', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const markdown = scrapeHtml(await strategy.fetch(`${server.origin}/disclosures`)).markdown;
+
+      for (const marker of ['OverviewOnly', 'EligibilityOnly', 'DocumentsOnly', 'AccordionOnly']) {
+        expect(markdown.split(marker)).toHaveLength(2);
+      }
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  /**
+   * The test that matters most here. "Sign out" is a plain button with plain
+   * text and no disclosure attribute — indistinguishable from "Show more" to
+   * any rule loose enough to catch phrasing. It must never be clicked.
+   */
+  it('leaves alone a button that never said it reveals anything', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/disclosures`);
+      const markdown = scrapeHtml(doc).markdown;
+
+      // Compared through the pipeline, like the SPA test above and for the same
+      // reason: the word is in the raw HTML either way, sitting in the onclick
+      // handler as source. What matters is whether it became the page.
+      expect(markdown).not.toContain('SignedOutNow');
+      expect(markdown).toContain('Sign out');
+      // Clicking it would have replaced the whole body.
+      expect(markdown).toContain('Behind A Click');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  it('can be turned off', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const markdown = scrapeHtml(
+        await strategy.fetch(`${server.origin}/disclosures`, { expand: false }),
+      ).markdown;
+
+      expect(markdown).toContain('OverviewOnly');
+      expect(markdown).not.toContain('EligibilityOnly');
+    } finally {
+      await strategy.close();
+    }
+  });
+
+  // A page with nothing to open must not pay for the pass, and must not have
+  // its markup altered by it — no stash element, no marker attributes.
+  it('changes nothing on a page with no disclosures', async () => {
+    const strategy = new BrowserStrategy();
+    try {
+      const doc = await strategy.fetch(`${server.origin}/`);
+
+      expect(doc.html).toContain('Static Article');
+      expect(doc.html).not.toContain('scrape-revealed');
+      expect(doc.html).not.toContain('data-scrape-expanded');
+    } finally {
+      await strategy.close();
+    }
+  });
+});
