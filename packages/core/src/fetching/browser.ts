@@ -75,6 +75,16 @@ export interface BrowserFetchOptions extends FetchOptions {
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
+ * How far past `timeoutMs` the hard deadline sits.
+ *
+ * The work after navigation — dismissing consent, expanding tabs, reading the
+ * DOM — is not covered by the navigation timeout and is bounded separately at
+ * around six seconds. Ten leaves that room without letting a wedged browser
+ * hold a slot appreciably longer than the caller asked for.
+ */
+const HARD_DEADLINE_GRACE_MS = 10_000;
+
+/**
  * Consent buttons, in the order worth trying.
  *
  * The named ones are the two platforms behind a large share of the web's
@@ -174,7 +184,21 @@ export class BrowserStrategy implements FetchStrategy {
     const abort = () => void context.close().catch(() => {});
     options.signal?.addEventListener('abort', abort, { once: true });
 
-    try {
+    /**
+     * Everything after this point, raced against a hard deadline.
+     *
+     * Playwright's own timeouts cover the calls they are attached to. They do
+     * not cover a browser that dies underneath us: the CDP connection goes
+     * silent and the promise we are awaiting neither resolves nor rejects, so
+     * the request hangs until something above kills it — 210 seconds on Lambda,
+     * and forever on a long-running server, which is worse.
+     *
+     * This is what guarantees a fetch always settles. It is deliberately not
+     * clever: no cancellation, no cleanup beyond what `finally` already does.
+     * Losing the race throws a timeout, `finally` closes the context, and the
+     * abandoned work dies with it.
+     */
+    const work = async (): Promise<HtmlDocument> => {
       const response = await navigate(page, url, waitUntil, timeoutMs);
       if (!response) throw new NetworkError(url, new Error('navigation produced no response'));
 
@@ -205,12 +229,29 @@ export class BrowserStrategy implements FetchStrategy {
         status,
         fetchedAt: new Date(),
       };
+    };
+
+    let hardDeadline: NodeJS.Timeout | undefined;
+
+    try {
+      return await Promise.race([
+        work(),
+        new Promise<never>((_resolve, reject) => {
+          hardDeadline = setTimeout(
+            () => reject(new FetchTimeoutError(url, timeoutMs)),
+            timeoutMs + HARD_DEADLINE_GRACE_MS,
+          );
+          // Never the reason the process stays alive.
+          hardDeadline.unref?.();
+        }),
+      ]);
     } catch (error) {
       // A navigation we aborted surfaces as a generic net::ERR — report the
       // reason we aborted it, not the symptom.
       if (blocked) throw blocked;
       throw translate(error, url, timeoutMs);
     } finally {
+      clearTimeout(hardDeadline);
       options.signal?.removeEventListener('abort', abort);
       await context.close().catch(() => {});
     }
