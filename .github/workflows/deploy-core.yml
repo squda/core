@@ -1,0 +1,59 @@
+name: Build and push the scrape service
+
+# Builds packages/core into a container image and pushes it to ECR. App Runner
+# watches that repository and redeploys itself when a new image lands, so this
+# is the whole deployment: push to main, and the service updates.
+#
+# It exists because App Runner will not build a Dockerfile from source — it only
+# does that for managed runtimes — so the image has to be somewhere it can pull
+# from. GitHub's runners are also amd64, which is the other half of the reason:
+# an image built on an Apple Silicon laptop is arm64, and App Runner answers
+# `exec format error` without mentioning architecture.
+
+on:
+  push:
+    branches: [main]
+    # The web app deploys itself through Vercel; nothing here needs rebuilding
+    # when only its files change.
+    paths:
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/deploy-core.yml'
+  # So a broken deploy can be re-run from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: squda-core
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push
+        env:
+          REGISTRY: ${{ steps.login.outputs.registry }}
+        run: |
+          # Two tags on one image: `latest` is what App Runner follows, and the
+          # commit sha is what makes a bad deploy diagnosable — without it every
+          # rollback question starts with "which build was that?".
+          docker build \
+            -f packages/core/Dockerfile \
+            -t "$REGISTRY/$ECR_REPOSITORY:latest" \
+            -t "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" \
+            .
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
