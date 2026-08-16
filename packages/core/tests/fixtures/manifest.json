@@ -1,0 +1,172 @@
+[
+  {
+    "name": "form-page",
+    "url": "https://httpbin.org/forms/post",
+    "finalUrl": "https://httpbin.org/forms/post",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:23:50.222Z",
+    "bytes": 1397,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-native-select",
+    "url": "https://demo.guru99.com/test/newtours/register.php",
+    "finalUrl": "https://demo.guru99.com/test/newtours/register.php",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-16T04:23:58.056Z",
+    "bytes": 37034,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-all-controls",
+    "url": "https://formy-project.herokuapp.com/form",
+    "finalUrl": "https://formy-project.herokuapp.com/form",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:24:00.557Z",
+    "bytes": 5893,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-select-minimal",
+    "url": "https://the-internet.herokuapp.com/dropdown",
+    "finalUrl": "https://the-internet.herokuapp.com/dropdown",
+    "status": 200,
+    "contentType": "text/html;charset=utf-8",
+    "fetchedAt": "2026-08-16T12:59:08.793Z",
+    "bytes": 2203,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-login-minimal",
+    "url": "https://the-internet.herokuapp.com/login",
+    "finalUrl": "https://the-internet.herokuapp.com/login",
+    "status": 200,
+    "contentType": "text/html;charset=utf-8",
+    "fetchedAt": "2026-08-16T04:24:06.035Z",
+    "bytes": 2376,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-shadow-dom",
+    "url": "https://www.selectorshub.com/xpath-practice-page/",
+    "finalUrl": "https://www.selectorshub.com/xpath-practice-page/",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-16T04:24:22.496Z",
+    "bytes": 482415,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "blog-post",
+    "url": "https://overreacted.io/the-wet-codebase/",
+    "finalUrl": "https://overreacted.io/the-wet-codebase/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:30:22.566Z",
+    "bytes": 22937,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "docs-page",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input",
+    "finalUrl": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input",
+    "status": 200,
+    "contentType": "text/html",
+    "fetchedAt": "2026-08-16T04:30:23.446Z",
+    "bytes": 307794,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "finalUrl": "https://en.wikipedia.org/wiki/Web_scraping",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-16T04:24:36.321Z",
+    "bytes": 239574,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "news-article",
+    "url": "https://apnews.com/hub/technology",
+    "finalUrl": "https://apnews.com/technology",
+    "status": 200,
+    "contentType": "text/html;charset=UTF-8",
+    "fetchedAt": "2026-08-16T04:30:28.402Z",
+    "bytes": 1410678,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "spa-empty-root",
+    "url": "https://excalidraw.com/",
+    "finalUrl": "https://excalidraw.com/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:30:24.096Z",
+    "bytes": 6856,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "spa-hydrated-shell",
+    "url": "https://www.myscheme.gov.in/schemes/sui",
+    "finalUrl": "https://www.myscheme.gov.in/schemes/sui",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:30:26.983Z",
+    "bytes": 53653,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "tabbed-content",
+    "url": "https://www.myscheme.gov.in/schemes/sui",
+    "finalUrl": "https://www.myscheme.gov.in/schemes/sui",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:30:37.924Z",
+    "bytes": 203895,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "book-listing",
+    "url": "https://books.toscrape.com/",
+    "finalUrl": "https://books.toscrape.com/",
+    "status": 200,
+    "contentType": "text/html",
+    "fetchedAt": "2026-08-16T04:24:46.225Z",
+    "bytes": 51274,
+    "fetchedWith": "http"
+  },
+  {
+    "name": "form-job-application",
+    "url": "https://job-boards.greenhouse.io/gitlab/jobs/8503792002",
+    "finalUrl": "https://job-boards.greenhouse.io/gitlab/jobs/8503792002",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:25:08.554Z",
+    "bytes": 129347,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "form-login-nolabels",
+    "url": "https://www.saucedemo.com/",
+    "finalUrl": "https://www.saucedemo.com/",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-16T04:26:17.914Z",
+    "bytes": 2670,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "thin-profile",
+    "url": "https://x.com/dan_abramov",
+    "finalUrl": "https://x.com/dan_abramov",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-16T04:30:26.174Z",
+    "bytes": 57383,
+    "fetchedWith": "http"
+  }
+]

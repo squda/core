@@ -134,9 +134,10 @@ pnpm lint
 pnpm format
 ```
 
-Tests never hit the live network. `packages/core/fixtures/` holds fifteen real pages captured with
-`npx tsx scripts/grab-fixture.ts <url> <name>` from inside `packages/core`; see
-[the fixtures README](./packages/core/fixtures/README.md).
+Tests never hit the live network. Everything they need lives under `packages/core/tests/` — the
+specs, the `fixtures/` directory holding seventeen real captured pages, and the grabber that
+captures them. Add one with `pnpm fixture <url> <name> [--browser]` from inside `packages/core`;
+see [the fixtures README](./packages/core/tests/fixtures/README.md).
 
 Requires Node 22+, pnpm, and `npx playwright install chromium` for the browser path. Both entry
 points refuse to start on anything older and say so in one line — `.nvmrc` pins the version, so

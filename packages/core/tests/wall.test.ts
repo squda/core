@@ -17,15 +17,21 @@ describe('against the real fixtures', () => {
   });
 
   /**
-   * thin-profile is x.com logged out: 810 characters, `Log in` and `Sign up`
-   * in the header, and a real profile underneath. It is the exact shape a
-   * careless login-wall rule flags, which is why it is in the fixture set.
+   * thin-profile is x.com logged out: 303 characters of real profile, well
+   * under the 2,000-character THIN floor. It is the exact shape a careless rule
+   * flags — a page with almost nothing on it — which is why it is in the set.
+   *
+   * Note what this fixture no longer proves. When it was captured in Phase 1 it
+   * also carried `Log in` and `Sign up` links in its nav, and the pairing of
+   * thinness *with* auth links was the trap it was chosen for. Today's x.com
+   * ships neither link in the initial HTML, so that half is covered only by the
+   * constructed cases below. Worth knowing before trusting this file to prove
+   * more than it does.
    */
-  it('leaves a thin real page with auth links in its nav alone', () => {
+  it('leaves a thin real page alone', () => {
     const scraped = scrapeHtml(loadFixture('thin-profile'));
 
     expect(scraped.markdown.length).toBeLessThan(2000);
-    expect(scraped.links.filter((link) => /log in|sign up/i.test(link.text))).toHaveLength(2);
     expect(scraped.wall).toBeNull();
   });
 });

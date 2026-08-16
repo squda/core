@@ -9,6 +9,7 @@
     "start": "tsx src/server.ts",
     "dev": "tsx --watch --env-file-if-exists=../../.env src/server.ts",
     "test": "vitest run",
+    "fixture": "tsx tests/grab-fixture.ts",
     "test:watch": "vitest",
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "typecheck": "tsc --noEmit"
