@@ -494,7 +494,9 @@ describe('GET /form-spec', () => {
     const spec = (await response.json()) as { forms: { fields: { label: string }[] }[] };
     const fields = spec.forms.flatMap((form) => form.fields);
 
-    expect(fields).toHaveLength(22);
+    // 23 on the application form, plus the reCAPTCHA textarea Google injects
+    // outside it. Both are boxes on the page, so both are in the spec.
+    expect(fields).toHaveLength(24);
     expect(fields.some((field) => field.label === 'First Name*')).toBe(true);
   });
 

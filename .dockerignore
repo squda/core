@@ -18,10 +18,9 @@ node_modules
 apps/web/*
 !apps/web/package.json
 
-# Tests, fixtures and the fixture grabber never run in production.
+# Tests, fixtures and the fixture grabber never run in production. All three
+# live under tests/, so one line covers them.
 packages/core/tests
-packages/core/fixtures
-packages/core/scripts
 packages/core/vitest.browser.config.ts
 **/*.test.ts
 

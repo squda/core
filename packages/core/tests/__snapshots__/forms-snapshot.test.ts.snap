@@ -1,38 +1,47 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`the FormSpec of every captured form > form-checkout 1`] = `
-"FORM #exampleModal > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > form:nth-of-type(1)
+exports[`the FormSpec of every captured form > form-all-controls 1`] = `
+"FORM body:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1)
   GET → (posts to itself)
   submit: (none found)
-  · Contact Email:  [text]
-      selector: #recipient-email
-      from: nearby-text  name=-  id=recipient-email
-  · Contact Email:  [text]
-      selector: #recipient-name
-      from: label-for  name=-  id=recipient-name
-  · Message:  [textarea]
-      selector: #message-text
-      from: label-for  name=-  id=message-text
-
-FORM #signInModal > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > form:nth-of-type(1)
-  GET → (posts to itself)
-  submit: (none found)
-  · Username:  [text]
-      selector: #sign-username
-      from: label-for  name=-  id=sign-username
-  · Password:  [password]  sensitive
-      selector: #sign-password
-      from: label-for  name=-  id=sign-password
-
-FORM #logInModal > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > form:nth-of-type(1)
-  GET → (posts to itself)
-  submit: (none found)
-  · Username:  [text]
-      selector: #loginusername
-      from: nearby-text  name=-  id=loginusername
-  · Password:  [password]  sensitive
-      selector: #loginpassword
-      from: nearby-text  name=-  id=loginpassword"
+  · First name  [text]
+      selector: #first-name
+      from: label-for  name=-  id=first-name
+      placeholder: Enter first name
+  · Last name  [text]
+      selector: #last-name
+      from: label-for  name=-  id=last-name
+      placeholder: Enter last name
+  · Job title  [text]
+      selector: #job-title
+      from: label-for  name=-  id=job-title
+      placeholder: Enter your job title
+  · Radio button  [radio]
+      selector: #radio-button-1
+      from: aria-label  name=-  id=radio-button-1
+  · Radio button  [radio]
+      selector: #radio-button-2
+      from: aria-label  name=-  id=radio-button-2
+  · Radio button  [radio]
+      selector: #radio-button-3
+      from: aria-label  name=-  id=radio-button-3
+  · checkbox  [checkbox]
+      selector: #checkbox-1
+      from: aria-label  name=-  id=checkbox-1
+  · checkbox  [checkbox]
+      selector: #checkbox-2
+      from: aria-label  name=-  id=checkbox-2
+  · checkbox  [checkbox]
+      selector: #checkbox-3
+      from: aria-label  name=-  id=checkbox-3
+  · Years of experience:  [select]
+      selector: #select-menu
+      from: label-for  name=-  id=select-menu
+      options: Select an option=0*, 0-1=1, 2-4=2, 5-9=3, 10+=4
+  · mm/dd/yyyy  [text]
+      selector: #datepicker
+      from: placeholder  name=-  id=datepicker
+      placeholder: mm/dd/yyyy"
 `;
 
 exports[`the FormSpec of every captured form > form-job-application 1`] = `
@@ -58,9 +67,15 @@ exports[`the FormSpec of every captured form > form-job-application 1`] = `
       selector: #country
       from: label-for  name=-  id=country
       autocomplete: off
+  · Search  [search]
+      selector: #iti-0__search-input
+      from: aria-label  name=-  id=iti-0__search-input
+      autocomplete: off
+      placeholder: Search
   · Phone  [tel]
       selector: #phone
       from: label-for  name=-  id=phone
+      autocomplete: off
       maxLength=255
   · Attach  [file]
       selector: #resume
@@ -133,7 +148,14 @@ exports[`the FormSpec of every captured form > form-job-application 1`] = `
       selector: #disability_status
       from: label-for  name=-  id=disability_status
       autocomplete: off
-      help: Select..."
+      help: Select...
+
+FORM (controls outside any <form>)
+  GET → (posts to itself)
+  submit: (none found)
+  · (no label)  [textarea]
+      selector: #g-recaptcha-response-100000
+      from: nothing  name=g-recaptcha-response  id=g-recaptcha-response-100000"
 `;
 
 exports[`the FormSpec of every captured form > form-job-application, in full 1`] = `
@@ -239,7 +261,31 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       },
       {
         "accept": null,
-        "autocomplete": null,
+        "autocomplete": "off",
+        "description": null,
+        "disabled": false,
+        "id": "iti-0__search-input",
+        "label": "Search",
+        "labelSource": "aria-label",
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": null,
+        "options": [],
+        "pattern": null,
+        "placeholder": "Search",
+        "readonly": false,
+        "required": false,
+        "selector": "#iti-0__search-input",
+        "sensitive": false,
+        "step": null,
+        "type": "search",
+      },
+      {
+        "accept": null,
+        "autocomplete": "off",
         "description": null,
         "disabled": false,
         "id": "phone",
@@ -675,6 +721,39 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
     "selector": "#application-form",
     "submitSelector": "#application-form > div:nth-of-type(4) > button:nth-of-type(1)",
   },
+  {
+    "action": null,
+    "fields": [
+      {
+        "accept": null,
+        "autocomplete": null,
+        "description": null,
+        "disabled": false,
+        "id": "g-recaptcha-response-100000",
+        "label": null,
+        "labelSource": null,
+        "max": null,
+        "maxLength": null,
+        "min": null,
+        "minLength": null,
+        "multiple": false,
+        "name": "g-recaptcha-response",
+        "options": [],
+        "pattern": null,
+        "placeholder": null,
+        "readonly": false,
+        "required": false,
+        "selector": "#g-recaptcha-response-100000",
+        "sensitive": false,
+        "step": null,
+        "type": "textarea",
+      },
+    ],
+    "method": "get",
+    "name": null,
+    "selector": null,
+    "submitSelector": null,
+  },
 ]
 `;
 
@@ -704,155 +783,242 @@ exports[`the FormSpec of every captured form > form-login-nolabels 1`] = `
       placeholder: Password"
 `;
 
-exports[`the FormSpec of every captured form > form-practice 1`] = `
-"FORM #userForm
-  GET → (posts to itself)
-  submit: #submit
-  · First Name  [text]  required
-      selector: #firstName
-      from: placeholder  name=-  id=firstName
-      autocomplete: off
-      placeholder: First Name
-  · Last Name  [text]  required
-      selector: #lastName
-      from: placeholder  name=-  id=lastName
-      autocomplete: off
-      placeholder: Last Name
-  · name@example.com  [text]
-      selector: #userEmail
-      from: placeholder  name=-  id=userEmail
-      autocomplete: off
-      placeholder: name@example.com
-      pattern=^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$
-  · Gender  [radio]  required
-      selector: #userForm [name="gender"]
-      from: nearby-text  name=gender  id=gender-radio-1
-      options: Male=Male, Female=Female, Other=Other
-  · Mobile Number  [text]  required
-      selector: #userNumber
-      from: placeholder  name=-  id=userNumber
-      autocomplete: off
-      placeholder: Mobile Number
-      pattern=\\d*  maxLength=10  minLength=10
-  · (no label)  [text]  sensitive
-      selector: #dateOfBirthInput
-      from: nothing  name=-  id=dateOfBirthInput
-  · (no label)  [text]
-      selector: #subjectsInput
-      from: nothing  name=-  id=subjectsInput
-      autocomplete: off
-  · Sports  [checkbox]
-      selector: #hobbies-checkbox-1
-      from: label-for  name=-  id=hobbies-checkbox-1
-  · Reading  [checkbox]
-      selector: #hobbies-checkbox-2
-      from: label-for  name=-  id=hobbies-checkbox-2
-  · Music  [checkbox]
-      selector: #hobbies-checkbox-3
-      from: label-for  name=-  id=hobbies-checkbox-3
-  · Picture  [file]
-      selector: #uploadPicture
-      from: nearby-text  name=-  id=uploadPicture
-  · Current Address  [textarea]
-      selector: #currentAddress
-      from: placeholder  name=-  id=currentAddress
-      placeholder: Current Address
-  · Select State  [text]
-      selector: #react-select-3-input
-      from: nearby-text  name=-  id=react-select-3-input
-      autocomplete: off
-      help: Select State
-  · Select City  [text]  disabled
-      selector: #react-select-4-input
-      from: nearby-text  name=-  id=react-select-4-input
-      autocomplete: off
-      help: Select City"
+exports[`the FormSpec of every captured form > form-native-select 1`] = `
+"FORM body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1)
+  POST → https://demo.guru99.com/test/newtours/register.php
+  submit: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="submit"]
+  · (no label)  [hidden]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="mercury"]
+      from: nothing  name=mercury  id=-
+  · First Name:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="firstName"]
+      from: nearby-text  name=firstName  id=-
+      maxLength=60
+  · Last Name:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="lastName"]
+      from: nearby-text  name=lastName  id=-
+      maxLength=60
+  · Phone:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="phone"]
+      from: nearby-text  name=phone  id=-
+      maxLength=20
+  · Email:  [text]
+      selector: #userName
+      from: nearby-text  name=userName  id=userName
+      maxLength=64
+  · Address:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="address1"]
+      from: nearby-text  name=address1  id=-
+      maxLength=60
+  · City:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="city"]
+      from: nearby-text  name=city  id=-
+      maxLength=60
+  · State/Province:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="state"]
+      from: nearby-text  name=state  id=-
+      maxLength=40
+  · Postal Code:  [text]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="postalCode"]
+      from: nearby-text  name=postalCode  id=-
+      maxLength=20
+  · Country:  [select]
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="country"]
+      from: nearby-text  name=country  id=-
+      options: ALBANIA=ALBANIA, ALGERIA=ALGERIA, AMERICAN SAMOA=AMERICAN SAMOA, ANDORRA=ANDORRA, ANGOLA=ANGOLA, ANGUILLA=ANGUILLA, ANTARCTICA=ANTARCTICA, ANTIGUA AND BARBUDA=ANTIGUA AND BARBUDA, ARGENTINA=ARGENTINA, ARMENIA=ARMENIA, ARUBA=ARUBA, ASHMORE AND CARTIER ISLANDS=ASHMORE AND CARTIER ISLANDS, AUSTRALIA=AUSTRALIA, AUSTRIA=AUSTRIA, AZERBAIJAN=AZERBAIJAN, BAHAMAS=BAHAMAS, BAHRAIN=BAHRAIN, BAKER ISLAND=BAKER ISLAND, BANGLADESH=BANGLADESH, BARBADOS=BARBADOS, BASSA DE INDIA=BASSA DE INDIA, BELARUS=BELARUS, BELGIUM=BELGIUM, BELIZE=BELIZE, BENIN=BENIN, BERMUDA=BERMUDA, BHUTAN=BHUTAN, BOLIVIA=BOLIVIA, BOSNIA AND HERZEGOVINA=BOSNIA AND HERZEGOVINA, BOTSWANA=BOTSWANA, BOUVET ISLAND=BOUVET ISLAND, BRAZIL=BRAZIL, BRITISH INDIAN OCEAN TERRITORY=BRITISH INDIAN OCEAN TERRITORY, BRITISH VIRGIN ISLANDS=BRITISH VIRGIN ISLANDS, BRUNEI=BRUNEI, BULGARIA=BULGARIA, BURKINA FASO=BURKINA FASO, BURMA=BURMA, BURUNDI=BURUNDI, CAMBODIA=CAMBODIA, CAMEROON=CAMEROON, CANADA=CANADA, CAPE VERDE=CAPE VERDE, CAYMAN ISLANDS=CAYMAN ISLANDS, CENTRAL AFRICAN REPUBLIC=CENTRAL AFRICAN REPUBLIC, CHAD=CHAD, CHILE=CHILE, CHINA=CHINA, CHRISTMAS ISLAND=CHRISTMAS ISLAND, CLIPPERTON ISLAND=CLIPPERTON ISLAND, COCOS (KEELING) ISLANDS=COCOS (KEELING) ISLANDS, COLOMBIA=COLOMBIA, COMOROS=COMOROS, CONGO=CONGO, COOK ISLANDS=COOK ISLANDS, CORAL SEA ISLANDS=CORAL SEA ISLANDS, COSTA RICA=COSTA RICA, COTE D'IVOIRE=COTE D'IVOIRE, CROATIA=CROATIA, CUBA=CUBA, CYPRUS=CYPRUS, CZECH REPUBLIC=CZECH REPUBLIC, DENMARK=DENMARK, DJIBOUTI=DJIBOUTI, DOMINICA=DOMINICA, DOMINICAN REPUBLIC=DOMINICAN REPUBLIC, ECUADOR=ECUADOR, EGYPT=EGYPT, EL SALVADOR=EL SALVADOR, EQUATORIAL GUINEA=EQUATORIAL GUINEA, ERITREA=ERITREA, ESTONIA=ESTONIA, ETHIOPIA=ETHIOPIA, EUROPA ISLAND=EUROPA ISLAND, FALKLAND ISLANDS=FALKLAND ISLANDS, FAROE ISLANDS=FAROE ISLANDS, FIJI=FIJI, FINLAND=FINLAND, FRANCE=FRANCE, FRENCH GUIANA=FRENCH GUIANA, FRENCH POLYNESIA=FRENCH POLYNESIA, FRENCH SOUTHERN AND ANTARCTIC LANDS=FRENCH SOUTHERN AND ANTARCTIC LANDS, GABON=GABON, GAMBIA, THE=GAMBIA, THE, GAZA STRIP=GAZA STRIP, GEORGIA=GEORGIA, GERMANY=GERMANY, GHANA=GHANA, GIBRALTAR=GIBRALTAR, GLORIOSO ISLANDS=GLORIOSO ISLANDS, GREECE=GREECE, GREENLAND=GREENLAND, GRENADA=GRENADA, GUADELOUPE=GUADELOUPE, GUAM=GUAM, GUATEMALA=GUATEMALA, GUERNSEY=GUERNSEY, GUINEA=GUINEA, GUINEA-BISSAU=GUINEA-BISSAU, GUYANA=GUYANA, HAITI=HAITI, HEARD ISLAND AND MCDONALD ISLANDS=HEARD ISLAND AND MCDONALD ISLANDS, HONDURAS=HONDURAS, HONG KONG=HONG KONG, HOWLAND ISLAND=HOWLAND ISLAND, HUNGARY=HUNGARY, ICELAND=ICELAND, INDIA=INDIA, INDONESIA=INDONESIA, IRAN=IRAN, IRAQ=IRAQ, IRELAND=IRELAND, ISRAEL=ISRAEL, ITALY=ITALY, JAMAICA=JAMAICA, JAN MAYEN=JAN MAYEN, JAPAN=JAPAN, JARVIS ISLAND=JARVIS ISLAND, JERSEY=JERSEY, JOHNSTON ATOLL=JOHNSTON ATOLL, JORDAN=JORDAN, JUAN DE NOVA ISLAND=JUAN DE NOVA ISLAND, KAZAKHSTAN=KAZAKHSTAN, KENYA=KENYA, KINGMAN REEF=KINGMAN REEF, KIRIBATI=KIRIBATI, KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF=KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF, KOREA, REPUBLIC OF=KOREA, REPUBLIC OF, KUWAIT=KUWAIT, KYRGYZSTAN=KYRGYZSTAN, LAOS=LAOS, LATVIA=LATVIA, LEBANON=LEBANON, LESOTHO=LESOTHO, LIBERIA=LIBERIA, LIBYA=LIBYA, LIECHTENSTEIN=LIECHTENSTEIN, LITHUANIA=LITHUANIA, LUXEMBOURG=LUXEMBOURG, MACAU=MACAU, MACEDONIA, FORMER REPUBLIC OF=MACEDONIA, FORMER REPUBLIC OF, MADAGASCAR=MADAGASCAR, MALAWI=MALAWI, MALAYSIA=MALAYSIA, MALDIVES=MALDIVES, MALI=MALI, MALTA=MALTA, MAN, ISLE OF=MAN, ISLE OF, MARSHALL ISLANDS=MARSHALL ISLANDS, MARTINIQUE=MARTINIQUE, MAURITANIA=MAURITANIA, MAURITIUS=MAURITIUS, MAYOTTE=MAYOTTE, MEXICO=MEXICO, MICRONESIA=MICRONESIA, MIDWAY ISLANDS=MIDWAY ISLANDS, MOLDOVA=MOLDOVA, MONACO=MONACO, MONGOLIA=MONGOLIA, MONTENEGRO=MONTENEGRO, MONTSERRAT=MONTSERRAT, MOROCCO=MOROCCO, MOZAMBIQUE=MOZAMBIQUE, NAMIBIA=NAMIBIA, NAURU=NAURU, NAVASSA ISLAND=NAVASSA ISLAND, NEPAL=NEPAL, NETHERLANDS=NETHERLANDS, NETHERLANDS ANTILLES=NETHERLANDS ANTILLES, NEW CALEDONIA=NEW CALEDONIA, NEW ZEALAND=NEW ZEALAND, NICARAGUA=NICARAGUA, NIGER=NIGER, NIGERIA=NIGERIA, NIUE=NIUE, NO MANS LAND=NO MANS LAND, NORFOLK ISLAND=NORFOLK ISLAND, NORTHERN MARIANA ISLANDS=NORTHERN MARIANA ISLANDS, NORWAY=NORWAY, OCEANS=OCEANS, OMAN=OMAN, PAKISTAN=PAKISTAN, PALMYRA ATOLL=PALMYRA ATOLL, PANAMA=PANAMA, PAPUA NEW GUINEA=PAPUA NEW GUINEA, PARACEL ISLANDS=PARACEL ISLANDS, PARAGUAY=PARAGUAY, PERU=PERU, PHILIPPINES=PHILIPPINES, PITCAIRN ISLANDS=PITCAIRN ISLANDS, POLAND=POLAND, PORTUGAL=PORTUGAL, PUERTO RICO=PUERTO RICO, QATAR=QATAR, REUNION=REUNION, ROMANIA=ROMANIA, RUSSIA=RUSSIA, RWANDA=RWANDA, SAN MARINO=SAN MARINO, SAO TOME AND PRINCIPE=SAO TOME AND PRINCIPE, SAUDI ARABIA=SAUDI ARABIA, SENEGAL=SENEGAL, SERBIA=SERBIA, SEYCHELLES=SEYCHELLES, SIERRA LEONE=SIERRA LEONE, SINGAPORE=SINGAPORE, SLOVAKIA=SLOVAKIA, SLOVENIA=SLOVENIA, SOLOMON ISLANDS=SOLOMON ISLANDS, SOMALIA=SOMALIA, SOUTH AFRICA=SOUTH AFRICA, SOVIET UNION=SOVIET UNION, SPAIN=SPAIN, SPRATLY ISLANDS=SPRATLY ISLANDS, SRI LANKA=SRI LANKA, ST. HELENA=ST. HELENA, ST. KITTS AND NEVIS=ST. KITTS AND NEVIS, ST. LUCIA=ST. LUCIA, ST. PIERRE AND MIQUELON=ST. PIERRE AND MIQUELON, ST. VINCENT AND THE GRENADINES=ST. VINCENT AND THE GRENADINES, SUDAN=SUDAN, SURINAME=SURINAME, SVALBARD=SVALBARD, SWAZILAND=SWAZILAND, SWEDEN=SWEDEN, SWITZERLAND=SWITZERLAND, SYRIA=SYRIA, TAIWAN=TAIWAN, TAJIKISTAN=TAJIKISTAN, TANZANIA, UNITED REPUBLIC OF=TANZANIA, UNITED REPUBLIC OF, THAILAND=THAILAND, TOGO=TOGO, TOKELAU=TOKELAU, TONGA=TONGA, TRINIDAD AND TOBAGO=TRINIDAD AND TOBAGO, TROMELIN ISLAND=TROMELIN ISLAND, TUNISIA=TUNISIA, TURKEY=TURKEY, TURKMENISTAN=TURKMENISTAN, TURKS AND CAICOS ISLANDS=TURKS AND CAICOS ISLANDS, TUVALU=TUVALU, UGANDA=UGANDA, UKRAINE=UKRAINE, UNDERSEA FEATURES=UNDERSEA FEATURES, UNITED ARAB EMIRATES=UNITED ARAB EMIRATES, UNITED KINGDOM=UNITED KINGDOM, UNITED STATES=UNITED STATES, URUGUAY=URUGUAY, UZBEKISTAN=UZBEKISTAN, VANUATU=VANUATU, VATICAN CITY=VATICAN CITY, VENEZUELA=VENEZUELA, VIETNAM=VIETNAM, VIRGIN ISLANDS=VIRGIN ISLANDS, WAKE ISLAND=WAKE ISLAND, WALLIS AND FUTUNA=WALLIS AND FUTUNA, WEST BANK=WEST BANK, WESTERN SAHARA=WESTERN SAHARA, WESTERN SAMOA=WESTERN SAMOA, YEMEN=YEMEN, YUGOSLAVIA=YUGOSLAVIA, ZAIRE=ZAIRE, ZAMBIA=ZAMBIA, ZIMBABWE=ZIMBABWE
+  · User Name:  [text]
+      selector: #email
+      from: nearby-text  name=email  id=email
+      maxLength=60
+  · Password:  [password]  sensitive
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="password"]
+      from: nearby-text  name=password  id=-
+      maxLength=60
+  · Confirm Password:  [password]  sensitive
+      selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="confirmPassword"]
+      from: nearby-text  name=confirmPassword  id=-
+      maxLength=60"
 `;
 
-exports[`the FormSpec of every captured form > form-signup 1`] = `
-"FORM #searchform
-  GET → https://auth.wikimedia.org/enwiki/w/index.php
-  submit: #searchform > button:nth-of-type(1)
-  · Search Wikipedia  [search]
-      selector: #searchInput
-      from: aria-label  name=search  id=searchInput
-      autocomplete: off
-      placeholder: Search Wikipedia
-  · (no label)  [hidden]
-      selector: #searchform [name="title"]
-      from: nothing  name=title  id=-
+exports[`the FormSpec of every captured form > form-page 1`] = `
+"FORM body:nth-of-type(1) > form:nth-of-type(1)
+  POST → https://httpbin.org/post
+  submit: body:nth-of-type(1) > form:nth-of-type(1) > p:nth-of-type(6) > button:nth-of-type(1)
+  · Customer name:  [text]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="custname"]
+      from: label-wrapping  name=custname  id=-
+  · Telephone:  [tel]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="custtel"]
+      from: label-wrapping  name=custtel  id=-
+  · E-mail address:  [email]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="custemail"]
+      from: label-wrapping  name=custemail  id=-
+  · Pizza Size  [radio]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="size"]
+      from: label-wrapping  name=size  id=-
+      options: Small=small, Medium=medium, Large=large
+  · Pizza Toppings  [checkbox]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="topping"]
+      from: label-wrapping  name=topping  id=-
+      options: Bacon=bacon, Extra Cheese=cheese, Onion=onion, Mushroom=mushroom
+  · Preferred delivery time:  [time]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="delivery"]
+      from: label-wrapping  name=delivery  id=-
+  · Delivery instructions:  [textarea]
+      selector: body:nth-of-type(1) > form:nth-of-type(1) [name="comments"]
+      from: label-wrapping  name=comments  id=-"
+`;
 
-FORM #userlogin2
-  POST → https://auth.wikimedia.org/enwiki/w/index.php?title=Special:CreateAccount&centralauthLoginToken=1e29e1525c0eba30fc50b7d255b9c9f6&usesul3=1&useformat=desktop
-  submit: #wpCreateaccount
-  · (no label)  [hidden]
-      selector: #userlogin2 [name="title"]
-      from: nothing  name=title  id=-
-  · Username  [text]  required
-      selector: #wpName2
-      from: label-for  name=wpName  id=wpName2
-      autocomplete: username
-      placeholder: Enter your username
-  · Password  [password]  required sensitive
-      selector: #wpPassword2
-      from: label-for  name=wpPassword  id=wpPassword2
-      autocomplete: new-password
-      placeholder: Enter a password
-  · Confirm password  [password]  required sensitive
-      selector: #wpRetype
-      from: label-for  name=retype  id=wpRetype
-      autocomplete: new-password
-      placeholder: Enter password again
-  · Email address  [email]
-      selector: #wpEmail
-      from: label-for  name=email  id=wpEmail
-      autocomplete: email
-      placeholder: Enter your email address
-      maxLength=255
-  · (no label)  [hidden]
-      selector: #wpEditToken
-      from: nothing  name=wpEditToken  id=wpEditToken
-  · (no label)  [hidden]
-      selector: #userlogin2 [name="authAction"]
-      from: nothing  name=authAction  id=-
-  · (no label)  [hidden]
-      selector: #userlogin2 [name="force"]
-      from: nothing  name=force  id=-
-  · (no label)  [hidden]
-      selector: #userlogin2 [name="wpCreateaccountToken"]
-      from: nothing  name=wpCreateaccountToken  id=-
-  · (no label)  [hidden]
-      selector: #mw-input-campaign
-      from: nothing  name=campaign  id=mw-input-campaign
+exports[`the FormSpec of every captured form > form-select-minimal 1`] = `
+"FORM (controls outside any <form>)
+  GET → (posts to itself)
+  submit: (none found)
+  · Dropdown List  [select]
+      selector: #dropdown
+      from: nearby-text  name=-  id=dropdown
+      options: Please select an option=*, Option 1=1, Option 2=2"
+`;
 
-FORM #vector-sticky-search-form
-  GET → https://auth.wikimedia.org/enwiki/w/index.php
-  submit: #vector-sticky-search-form > button:nth-of-type(1)
-  · Search Wikipedia  [search]
-      selector: #vector-sticky-search-form [name="search"]
-      from: placeholder  name=search  id=-
-      autocomplete: off
-      placeholder: Search Wikipedia
-  · (no label)  [hidden]
-      selector: #vector-sticky-search-form [name="title"]
-      from: nothing  name=title  id=-
+exports[`the FormSpec of every captured form > form-shadow-dom 1`] = `
+"FORM #paymentForm
+  GET → (posts to itself)
+  submit: #paymentForm > button:nth-of-type(1)
+  · John Doe  [text]  required
+      selector: #cardName
+      from: placeholder  name=-  id=cardName
+      placeholder: John Doe
+  · 1234 5678 9012 3456  [text]  required sensitive
+      selector: #cardNumber
+      from: placeholder  name=-  id=cardNumber
+      placeholder: 1234 5678 9012 3456
+      maxLength=19
+  · MM/YY  [text]  required
+      selector: #expiry
+      from: placeholder  name=-  id=expiry
+      placeholder: MM/YY
+      maxLength=5
+  · 123  [text]  required sensitive
+      selector: #cvv
+      from: placeholder  name=-  id=cvv
+      placeholder: 123
+      maxLength=4
 
 FORM (controls outside any <form>)
   GET → (posts to itself)
   submit: (none found)
-  · Main menu  [checkbox]
-      selector: #vector-main-menu-dropdown-checkbox
-      from: label-for  name=-  id=vector-main-menu-dropdown-checkbox
-  · Appearance  [checkbox]
-      selector: #vector-appearance-dropdown-checkbox
-      from: label-for  name=-  id=vector-appearance-dropdown-checkbox
-  · Personal tools  [checkbox]
-      selector: #vector-user-links-dropdown-checkbox
-      from: label-for  name=-  id=vector-user-links-dropdown-checkbox
-  · English  [checkbox]
-      selector: #vector-variants-dropdown-checkbox
-      from: label-for  name=-  id=vector-variants-dropdown-checkbox
-  · Tools  [checkbox]
-      selector: #vector-page-tools-dropdown-checkbox
-      from: label-for  name=-  id=vector-page-tools-dropdown-checkbox"
+  · Enter email  [email]  readonly
+      selector: #shub70
+      from: placeholder  name=email  id=shub70
+      autocomplete: anyrandomstring
+      placeholder: Enter email
+  · Enter Password  [password]  sensitive
+      selector: #pass
+      from: placeholder  name=Password  id=pass
+      autocomplete: off_anyrandomstring
+      placeholder: Enter Password
+  · Enter your company  [text]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: placeholder  name=company  id=-
+      placeholder: Enter your company
+  · Enter your mobile number  [number]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
+      from: placeholder  name=mobile number  id=-
+      placeholder: Enter your mobile number
+  · Country  [text]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > label:nth-of-type(1) > input:nth-of-type(1)
+      from: label-wrapping  name=-  id=-
+  · Enter your company  [text]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: placeholder  name=company  id=-
+      placeholder: Enter your company
+  · Enter your mobile number  [number]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
+      from: placeholder  name=mobile number  id=-
+      placeholder: Enter your mobile number
+  · Enter your company  [text]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: placeholder  name=company  id=-
+      placeholder: Enter your company
+  · Enter your mobile number  [number]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
+      from: placeholder  name=mobile number  id=-
+      placeholder: Enter your mobile number
+  · Enter your company  [text]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: placeholder  name=company  id=-
+      placeholder: Enter your company
+  · Enter your mobile number  [number]
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
+      from: placeholder  name=mobile number  id=-
+      placeholder: Enter your mobile number
+  · First Crush  [text]
+      selector: #inp_val
+      from: placeholder  name=-  id=inp_val
+      placeholder: First Crush
+  · (no label)  [checkbox]
+      selector: #ohrmList_chkSelectAll
+      from: nothing  name=chkSelectAll  id=ohrmList_chkSelectAll
+  · (no label)  [checkbox]
+      selector: [name="chkSelectRow[]"]
+      from: nothing  name=chkSelectRow[]  id=ohrmList_chkSelectRecord_25
+      options: 25=25, 16=16, 21=21, 2=2, 14=14, 15=15
+  · First Enter name  [text]  disabled
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
+      from: placeholder  name=test  id=-
+      placeholder: First Enter name
+  · Enter Last name  [text]  disabled
+      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
+      from: placeholder  name=test  id=-
+      placeholder: Enter Last name
+  · Choose a car:  [select]
+      selector: #cars
+      from: label-for  name=cars  id=cars
+      options: Volvo=volvo, Saab=saab, Opel=opel, Audi=audi
+  · করোনা সংক্রমণ বাড়াচ্ছে 也支持中文  [text]
+      selector: #datepicker
+      from: nearby-text  name=-  id=datepicker
+      autocomplete: off
+  · করোনা সংক্রমণ বাড়াচ্ছে 也支持中文  [date]
+      selector: [name="the_date"]
+      from: nearby-text  name=the_date  id=-
+  · Click to Download PNG File  [file]
+      selector: #myFile
+      from: nearby-text  name=filename  id=myFile
+  · entries per page  [select]
+      selector: #dt-length-0
+      from: label-for  name=-  id=dt-length-0
+      options: 10=10, 25=25, 50=50, 100=100
+  · Search:  [search]
+      selector: #dt-search-0
+      from: label-for  name=-  id=dt-search-0
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-
+  · (no label)  [checkbox]
+      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(1) > input:nth-of-type(1)
+      from: nothing  name=-  id=-"
 `;

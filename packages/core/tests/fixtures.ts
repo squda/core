@@ -19,7 +19,7 @@ interface FixtureEntry {
   fetchedWith?: 'http' | 'browser';
 }
 
-const manifestUrl = new URL('../fixtures/manifest.json', import.meta.url);
+const manifestUrl = new URL('./fixtures/manifest.json', import.meta.url);
 const manifest = JSON.parse(readFileSync(manifestUrl, 'utf8')) as FixtureEntry[];
 
 export const fixtureNames = manifest.map((entry) => entry.name);
@@ -34,7 +34,7 @@ export function loadFixture(name: string): HtmlDocument {
     throw new Error(`no fixture named ${name}. Available: ${fixtureNames.join(', ')}`);
   }
 
-  const html = readFileSync(new URL(`../fixtures/${name}.html`, import.meta.url), 'utf8');
+  const html = readFileSync(new URL(`./fixtures/${name}.html`, import.meta.url), 'utf8');
 
   return {
     url: entry.url,

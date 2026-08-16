@@ -20,6 +20,10 @@ import type { Field, FormSpec } from '@untitled/schema';
  * of object literals is technically the same information and practically
  * unreadable, and an unreadable diff gets accepted without being read, which
  * defeats the point of having it.
+ *
+ * One row is deliberately enormous: form-native-select's country list runs to
+ * 264 options on a single line. Left as it is — truncating it would hide the
+ * day the list comes back with three.
  */
 
 function render(spec: FormSpec): string {
@@ -78,11 +82,13 @@ function renderField(field: Field): string[] {
 
 const FIXTURES = [
   'form-job-application',
-  'form-practice',
-  'form-signup',
-  'form-checkout',
+  'form-page',
+  'form-native-select',
+  'form-all-controls',
+  'form-select-minimal',
   'form-login-minimal',
   'form-login-nolabels',
+  'form-shadow-dom',
 ] as const;
 
 describe('the FormSpec of every captured form', () => {

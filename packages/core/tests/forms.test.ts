@@ -263,14 +263,16 @@ describe('constraints', () => {
   });
 });
 
-describe('against the six real forms', () => {
+describe('against the eight real forms', () => {
   const names = [
     'form-job-application',
-    'form-practice',
-    'form-signup',
-    'form-checkout',
+    'form-page',
+    'form-native-select',
+    'form-all-controls',
+    'form-select-minimal',
     'form-login-minimal',
     'form-login-nolabels',
+    'form-shadow-dom',
   ];
 
   it.each(names)('%s parses into a FormSpec', (name) => {
@@ -281,11 +283,12 @@ describe('against the six real forms', () => {
   });
 
   it('reads the GitLab application the way a person would', () => {
-    const spec = extractForms(loadFixture('form-job-application'));
-    const fields = spec.forms.flatMap((form) => form.fields);
+    const application = extractForms(loadFixture('form-job-application')).forms[0];
+    const fields = application?.fields ?? [];
     const byId = new Map(fields.map((field) => [field.id, field]));
 
-    expect(fields).toHaveLength(22);
+    expect(application?.selector).toBe('#application-form');
+    expect(fields).toHaveLength(23);
     expect(byId.get('first_name')).toMatchObject({
       label: 'First Name*',
       autocomplete: 'given-name',
@@ -298,31 +301,69 @@ describe('against the six real forms', () => {
   });
 
   /**
-   * Not one control on the GitLab form has a `name`. React holds the state and
-   * submits over fetch, so the attribute buys the page nothing — and the
-   * matcher cannot lean on it. `id`, `label` and `autocomplete` are what is
+   * Not one control on the GitLab application has a `name`. React holds the
+   * state and submits over fetch, so the attribute buys the page nothing — and
+   * the matcher cannot lean on it. `id`, `label` and `autocomplete` are what is
    * actually there, which is why all three are on the schema.
+   *
+   * Scoped to the application form on purpose: the page also carries a stray
+   * reCAPTCHA textarea outside any <form>, and *that* one does have a name. The
+   * finding is about how the application is built, not about every node Google
+   * injected next to it.
    */
   it('copes with a form that has no name attributes at all', () => {
-    const fields = extractForms(loadFixture('form-job-application')).forms.flatMap((f) => f.fields);
+    const fields = extractForms(loadFixture('form-job-application')).forms[0]?.fields ?? [];
 
     expect(fields.every((field) => field.name === null)).toBe(true);
     expect(fields.every((field) => field.selector.length > 0)).toBe(true);
     expect(fields.filter((field) => field.autocomplete !== null).length).toBeGreaterThan(10);
   });
 
-  it('groups the practice form’s radios under their question', () => {
-    const spec = extractForms(loadFixture('form-practice'));
-    const gender = spec.forms
-      .flatMap((form) => form.fields)
-      .find((field) => field.name === 'gender');
+  it('groups the pizza form’s radios and checkboxes under their questions', () => {
+    const fields = extractForms(loadFixture('form-page')).forms.flatMap((form) => form.fields);
+    const size = fields.find((field) => field.name === 'size');
+    const topping = fields.find((field) => field.name === 'topping');
 
-    expect(gender).toMatchObject({ type: 'radio', label: 'Gender' });
-    expect(gender?.options.map((option) => option.label)).toEqual(['Male', 'Female', 'Other']);
+    expect(size).toMatchObject({ type: 'radio', label: 'Pizza Size' });
+    expect(size?.options.map((option) => option.label)).toEqual(['Small', 'Medium', 'Large']);
+
+    expect(topping).toMatchObject({ type: 'checkbox', label: 'Pizza Toppings' });
+    expect(topping?.options).toHaveLength(4);
   });
 
-  it('keeps Wikipedia’s hidden fields without inventing labels for them', () => {
-    const hidden = extractForms(loadFixture('form-signup'))
+  /**
+   * The gap this fixture exists to document.
+   *
+   * Grouping keys on a shared `name`, and formy-project gives its radios and
+   * checkboxes ids only. So nine controls that a person reads as three
+   * questions come back as nine separate fields, each labelled "Radio button"
+   * or "checkbox" off its aria-label. That is wrong the way a person means it
+   * and right the way the markup reads — there is nothing in the DOM tying them
+   * together. Asserted rather than fixed so the day someone groups by position
+   * or by fieldset, this test tells them what they changed.
+   */
+  it('cannot group controls that share no name, and says so', () => {
+    const fields = extractForms(loadFixture('form-all-controls')).forms.flatMap((f) => f.fields);
+    const radios = fields.filter((field) => field.type === 'radio');
+
+    expect(radios).toHaveLength(3);
+    expect(radios.every((field) => field.name === null)).toBe(true);
+    expect(radios.every((field) => field.options.length === 0)).toBe(true);
+  });
+
+  // 264 countries. The options array is not a formality on a real page.
+  it('reads a long native select whole', () => {
+    const country = extractForms(loadFixture('form-native-select'))
+      .forms.flatMap((form) => form.fields)
+      .find((field) => field.name === 'country');
+
+    expect(country?.type).toBe('select');
+    expect(country?.options).toHaveLength(264);
+    expect(country?.options[0]).toEqual({ value: 'ALBANIA', label: 'ALBANIA', selected: false });
+  });
+
+  it('keeps hidden fields without inventing labels for them', () => {
+    const hidden = extractForms(loadFixture('form-native-select'))
       .forms.flatMap((form) => form.fields)
       .filter((field) => field.type === 'hidden');
 
@@ -331,12 +372,7 @@ describe('against the six real forms', () => {
   });
 
   it('finds every password field, across every form', () => {
-    for (const name of [
-      'form-signup',
-      'form-checkout',
-      'form-login-minimal',
-      'form-login-nolabels',
-    ]) {
+    for (const name of ['form-native-select', 'form-login-minimal', 'form-login-nolabels']) {
       const sensitive = extractForms(loadFixture(name))
         .forms.flatMap((form) => form.fields)
         .filter((field) => field.sensitive);
@@ -346,24 +382,48 @@ describe('against the six real forms', () => {
   });
 
   /**
-   * demoblaze's own markup says `<label for="recipient-name">Contact Email:</label>` —
-   * the label points at the name field and calls it an email. We report what
-   * the page says, because a walker that "corrects" a page is a walker you
-   * cannot trust to describe one. It is also the argument for Phase 6 needing
-   * more than a label to match on.
+   * guru99 has its two account fields the wrong way round: the control named
+   * `userName` sits under the text "Email:", and the one named `email` sits
+   * under "User Name:". We report what the page says, because a walker that
+   * "corrects" a page is a walker you cannot trust to describe one. It is also
+   * the argument for Phase 6 needing more than a label to match on — here the
+   * label and the name flatly contradict each other.
    */
   it('reports a mislabelled field faithfully rather than correcting it', () => {
-    const field = extractForms(loadFixture('form-checkout'))
-      .forms.flatMap((form) => form.fields)
-      .find((f) => f.id === 'recipient-name');
+    const fields = extractForms(loadFixture('form-native-select')).forms.flatMap((f) => f.fields);
 
-    expect(field).toMatchObject({ label: 'Contact Email:', labelSource: 'label-for' });
+    expect(fields.find((field) => field.name === 'userName')?.label).toBe('Email:');
+    expect(fields.find((field) => field.name === 'email')?.label).toBe('User Name:');
+  });
+
+  /**
+   * A page laid out in nested tables gives a field no id, no usable name
+   * ancestor, and nothing but its position. The selector that comes back is 423
+   * characters of `nth-of-type`, which is ugly and correct — and far better
+   * than a short selector that matches the wrong box.
+   */
+  it('falls back to a positional path on a table-built page', () => {
+    const password = extractForms(loadFixture('form-native-select'))
+      .forms.flatMap((form) => form.fields)
+      .find((field) => field.name === 'password');
+
+    expect(password?.selector).toContain('nth-of-type');
+    expect(password?.selector).toContain('[name="password"]');
+  });
+
+  // Every label on guru99 comes from a table cell sitting next to the input.
+  it('reads labels from nearby text when the page never wrote a <label for>', () => {
+    const fields = extractForms(loadFixture('form-native-select')).forms.flatMap((f) => f.fields);
+    const labelled = fields.filter((field) => field.label !== null);
+
+    expect(labelled.length).toBeGreaterThan(5);
+    expect(labelled.every((field) => field.labelSource === 'nearby-text')).toBe(true);
   });
 
   it('finds no labels to find on the no-labels login', () => {
     const fields = extractForms(loadFixture('form-login-nolabels')).forms.flatMap((f) => f.fields);
 
     expect(fields.every((field) => field.labelSource !== 'label-for')).toBe(true);
-    expect(fields.some((field) => field.labelSource === 'placeholder')).toBe(true);
+    expect(fields.every((field) => field.labelSource === 'placeholder')).toBe(true);
   });
 });
