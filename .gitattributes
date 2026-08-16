@@ -1,0 +1,20 @@
+# Captured pages, saved byte-for-byte as the site served them.
+#
+# They are data, not source: nobody reads a 3,800-line diff of minified HTML,
+# and a diff nobody reads is a diff that gets approved without being read.
+#
+#   -diff               git prints "Binary files ... differ" instead of the
+#                       contents. The bytes are still committed and still
+#                       clone normally — `git diff --text` shows them when you
+#                       actually want them.
+#   linguist-generated  GitHub collapses them in pull requests behind a "Load
+#                       diff" button, and leaves them out of the language bar,
+#                       so this reads as the TypeScript project it is.
+#
+# Trade-off worth knowing: marked binary, git cannot merge two versions of the
+# same fixture line by line. That is the right answer for a captured page —
+# you re-capture it rather than merging two snapshots of a website.
+# Matched on any `fixtures/` directory rather than the current path on purpose:
+# the set has already moved once (packages/core/fixtures -> tests/fixtures), and
+# a path-specific rule silently stops applying to history the moment it moves.
+**/fixtures/*.html -diff linguist-generated
