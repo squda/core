@@ -16,6 +16,7 @@ import { assertFetchable } from './ssrf.js';
 import { USER_AGENT } from './user-agent.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
 import type { HtmlDocument } from '../core/types.js';
+import { inspectFormsOnPage, type BrowserFormInspection } from '../forms/live-inspector.js';
 
 /**
  * Phase 2 — the same page, fetched by a real browser.
@@ -73,6 +74,16 @@ export interface BrowserFetchOptions extends FetchOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+const OPEN_CLOSED_SHADOW_ROOTS_SCRIPT = String.raw`(() => {
+  const original = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function(init) {
+    const wasClosed = init.mode === 'closed';
+    const root = original.call(this, wasClosed ? { ...init, mode: 'open' } : init);
+    if (wasClosed) this.setAttribute('data-scrape-original-closed-shadow', '');
+    return root;
+  };
+})()`;
 
 /**
  * Consent buttons, in the order worth trying.
@@ -133,6 +144,32 @@ export class BrowserStrategy implements FetchStrategy {
   constructor(private readonly defaults: BrowserFetchOptions = {}) {}
 
   async fetch(url: string, options: BrowserFetchOptions = {}): Promise<HtmlDocument> {
+    return this.#visit(url, options, false, (_page, document) => document);
+  }
+
+  /**
+   * Fetch and inspect forms before the live page is closed.
+   *
+   * `page.content()` deliberately remains the fetch contract, but it cannot
+   * contain shadow roots or iframe documents. Form inspection therefore gets
+   * this dedicated operation while sharing the same guarded browser lifetime.
+   */
+  async inspectForms(
+    url: string,
+    options: BrowserFetchOptions = {},
+  ): Promise<BrowserFormInspection> {
+    return this.#visit(url, options, true, async (page, document) => ({
+      document,
+      spec: await inspectFormsOnPage(page, document),
+    }));
+  }
+
+  async #visit<Result>(
+    url: string,
+    options: BrowserFetchOptions,
+    openClosedShadowRoots: boolean,
+    read: (page: Page, document: HtmlDocument) => Result | Promise<Result>,
+  ): Promise<Result> {
     const {
       timeoutMs = DEFAULT_TIMEOUT_MS,
       waitUntil = 'networkidle',
@@ -140,6 +177,7 @@ export class BrowserStrategy implements FetchStrategy {
       scrollPasses = 0,
       expand = true,
       allowPrivate,
+      signal,
     } = { ...this.defaults, ...options };
 
     // Same guard as the HTTP path, and the browser needs it more: Chromium
@@ -154,6 +192,13 @@ export class BrowserStrategy implements FetchStrategy {
     // Cheap — unlike a browser, a context is just an isolated profile.
     const context: BrowserContext = await browser.newContext({ userAgent: USER_AGENT });
     const page = await context.newPage();
+
+    if (openClosedShadowRoots) {
+      // Closed roots deliberately disappear from every normal DOM interface.
+      // Install before site scripts run, and mark each affected host so the
+      // result can explain that replaying the locator needs the same hook.
+      await page.addInitScript(OPEN_CLOSED_SHADOW_ROOTS_SCRIPT);
+    }
 
     // Every document navigation is re-checked, which is what catches a public
     // page redirecting to 127.0.0.1 inside the browser where we cannot see it.
@@ -172,7 +217,7 @@ export class BrowserStrategy implements FetchStrategy {
     // Closing the context is how a navigation gets cancelled: Playwright has no
     // abort on goto(), so the page has to go away underneath it.
     const abort = () => void context.close().catch(() => {});
-    options.signal?.addEventListener('abort', abort, { once: true });
+    signal?.addEventListener('abort', abort, { once: true });
 
     try {
       const response = await navigate(page, url, waitUntil, timeoutMs);
@@ -195,7 +240,7 @@ export class BrowserStrategy implements FetchStrategy {
       // After expanding, so anything we just opened counts as visible.
       await markInvisible(page);
 
-      return {
+      const document: HtmlDocument = {
         url,
         fetchedWith: 'browser',
         // page.url() after navigation — redirects and pushState both land here.
@@ -205,13 +250,15 @@ export class BrowserStrategy implements FetchStrategy {
         status,
         fetchedAt: new Date(),
       };
+
+      return await read(page, document);
     } catch (error) {
       // A navigation we aborted surfaces as a generic net::ERR — report the
       // reason we aborted it, not the symptom.
       if (blocked) throw blocked;
       throw translate(error, url, timeoutMs);
     } finally {
-      options.signal?.removeEventListener('abort', abort);
+      signal?.removeEventListener('abort', abort);
       await context.close().catch(() => {});
     }
   }

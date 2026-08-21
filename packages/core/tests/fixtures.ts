@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import type { HtmlDocument } from '../src/core/types.js';
 
 /**
@@ -23,6 +23,24 @@ const manifestUrl = new URL('./fixtures/manifest.json', import.meta.url);
 const manifest = JSON.parse(readFileSync(manifestUrl, 'utf8')) as FixtureEntry[];
 
 export const fixtureNames = manifest.map((entry) => entry.name);
+export const fixtureFileNames = readdirSync(new URL('./fixtures/', import.meta.url))
+  .filter((name) => name.endsWith('.html'))
+  .map((name) => name.slice(0, -'.html'.length))
+  .sort();
+
+/** The real form corpus, shared by focused assertions and snapshots. */
+export const formFixtureNames = [
+  'form-job-application',
+  'form-page',
+  'form-native-select',
+  'form-all-controls',
+  'form-select-minimal',
+  'form-login-minimal',
+  'form-login-nolabels',
+  'form-signup',
+  'form-checkout',
+  'form-government-wizard',
+] as const;
 
 /**
  * The recorded response for a saved page, exactly as fetchPage would have

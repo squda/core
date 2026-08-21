@@ -262,6 +262,25 @@ export function createApp({
     return withBrowser();
   }
 
+  /** Fetch once and read forms while the real page is still alive. */
+  async function inspectFormPage(url: string, browser: string, timeoutMs: number) {
+    if (browser === 'never') {
+      const document = await fetchDocument(url, 'never', timeoutMs);
+      return { document, spec: extractForms(document) };
+    }
+
+    const normalised = normaliseUrl(url);
+    if (pool) return pool.inspectForms(normalised, { timeoutMs });
+
+    const { BrowserStrategy } = await import('../fetching/browser.js');
+    const strategy = new BrowserStrategy();
+    try {
+      return await strategy.inspectForms(normalised, { timeoutMs });
+    } finally {
+      await strategy.close();
+    }
+  }
+
   const queue = new JobQueue(
     async (url, browser, signal) =>
       (await scrapeOnce(url, browser, logger.child({ job: true }), signal)).document,
@@ -383,8 +402,7 @@ export function createApp({
     }
 
     try {
-      const document = await fetchDocument(url, browser, fetchTimeoutMs);
-      const spec = extractForms(document);
+      const { spec } = await inspectFormPage(url, browser, fetchTimeoutMs);
       log(context).info('form spec', {
         url,
         forms: spec.forms.length,
@@ -409,9 +427,9 @@ export function createApp({
    *  - **One call, both halves.** The demo needs the text and the fields; two
    *    endpoints would mean two rate-limit units for one visitor action, and a
    *    page that half-works when the second one is refused.
-   *  - **No `browser=always`.** Auto still escalates when a page is genuinely
-   *    empty, so an SPA works, but nobody can force the expensive path on a
-   *    page that never needed it.
+   *  - **No `browser=always`.** Form-aware auto mode uses the browser because
+   *    static HTML cannot expose iframe documents or shadow roots; callers can
+   *    only opt down to the cheaper `never` mode, not add stronger behavior.
    *  - **Rate limited per caller**, which is the whole point.
    *  - **Markdown truncated.** A visitor is reading a preview, not exporting a
    *    corpus, and it caps what a single request can cost to serve.
@@ -452,11 +470,9 @@ export function createApp({
     }
 
     try {
-      // One fetch, read twice. The walker needs the original HTML, which
-      // extraction throws away, so this cannot go through scrapeOnce's cache —
-      // but fetchDocument sits behind the same SSRF guard and browser pool.
-      const document = await fetchDocument(url, browser, demoTimeoutMs);
-      const spec = extractForms(document);
+      // One browser visit, read twice. Live inspection must happen before the
+      // page closes; its serialized document then feeds the prose pipeline.
+      const { document, spec } = await inspectFormPage(url, browser, demoTimeoutMs);
       const scraped = scrapeHtml(document);
 
       log(context).info('demo', {

@@ -168,6 +168,65 @@ const NEVER_IDLE = `<!doctype html>
   <script>setInterval(() => fetch('/ping').catch(() => {}), 150);</script>
 </body></html>`;
 
+/**
+ * A form whose second field only exists in a live open shadow root.
+ * `page.content()` cannot serialize that root, so this distinguishes live DOM
+ * inspection from running the static HTML walker after a browser fetch.
+ */
+const LIVE_FORMS = `<!doctype html>
+<html><head><title>Live forms</title></head><body>
+  <form id="profile">
+    <label for="full-name">Full name</label>
+    <input id="full-name" autocomplete="name">
+  </form>
+  <section id="account-shell"></section>
+  <section id="private-shell"></section>
+  <section id="generated-host-a83cf87f"></section>
+  <iframe id="embedded" src="/embedded-form"></iframe>
+  <iframe id="generated-frame-a83cf87f" name="address-frame" src="/generated-frame-form"></iframe>
+  <script>
+    const root = document.getElementById('account-shell').attachShadow({ mode: 'open' });
+    root.innerHTML = '<form id="account"><label for="shadow-email">Work email</label><input id="shadow-email" type="email" autocomplete="email"></form><iframe id="shadow-frame" src="/shadow-frame-form"></iframe>';
+    const closed = document.getElementById('private-shell').attachShadow({ mode: 'closed' });
+    closed.innerHTML = '<label for="private-code">Private code</label><input id="private-code">';
+    const generated = document.getElementById('generated-host-a83cf87f').attachShadow({ mode: 'open' });
+    generated.innerHTML = '<label for="generated-field">Generated host field</label><input id="generated-field">';
+  </script>
+</body></html>`;
+
+const FORM_WIZARD = `<!doctype html>
+<html><head><title>Application wizard</title></head><body>
+  <form id="application" action="/wizard-step-2" method="get">
+    <h2>Contact</h2>
+    <label for="wizard-email">Email</label>
+    <input id="wizard-email" name="email" type="email" required>
+    <fieldset><legend>Are you currently working?</legend>
+      <label><input type="radio" name="working" value="yes"> Yes</label>
+      <label><input type="radio" name="working" value="no"> No</label>
+    </fieldset>
+    <input type="submit" value="Next step">
+  </form>
+</body></html>`;
+
+const FORM_WIZARD_STEP_2 = `<!doctype html>
+<html><head><title>Application wizard</title></head><body>
+  <form id="application" action="/wizard-submitted" method="post">
+    <h2>Experience</h2>
+    <label for="years">Years of experience</label>
+    <input id="years" name="years" type="number" required>
+    <button type="submit">Submit application</button>
+  </form>
+</body></html>`;
+
+const STALLED_WIZARD = `<!doctype html>
+<html><head><title>Stalled wizard</title></head><body>
+  <form id="stalled">
+    <label for="unchanged">Unchanged answer</label>
+    <input id="unchanged" name="answer">
+    <button type="button">Continue</button>
+  </form>
+</body></html>`;
+
 export interface TestServer {
   /** e.g. http://127.0.0.1:53124 — no trailing slash. */
   origin: string;
@@ -176,7 +235,7 @@ export interface TestServer {
 
 export async function startTestServer(): Promise<TestServer> {
   const server: Server = createServer((request, response) => {
-    const path = request.url ?? '/';
+    const path = new URL(request.url ?? '/', 'http://test.local').pathname;
 
     if (path === '/spa') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -206,6 +265,52 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/never-idle') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(NEVER_IDLE);
+      return;
+    }
+    if (path === '/live-forms') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(LIVE_FORMS);
+      return;
+    }
+    if (path === '/embedded-form') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(
+        '<!doctype html><html><body><form><label for="city">City</label><input id="city" autocomplete="address-level2"></form></body></html>',
+      );
+      return;
+    }
+    if (path === '/shadow-frame-form') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(
+        '<!doctype html><html><body><label for="nested-code">Nested code</label><input id="nested-code"></body></html>',
+      );
+      return;
+    }
+    if (path === '/generated-frame-form') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(
+        '<!doctype html><html><body><label for="postal-code">Postal code</label><input id="postal-code"></body></html>',
+      );
+      return;
+    }
+    if (path === '/wizard') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(FORM_WIZARD);
+      return;
+    }
+    if (path === '/wizard-step-2') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(FORM_WIZARD_STEP_2);
+      return;
+    }
+    if (path === '/wizard-stalled') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(STALLED_WIZARD);
+      return;
+    }
+    if (path === '/wizard-submitted') {
+      response.writeHead(500, { 'content-type': 'text/html; charset=utf-8' });
+      response.end('<html><body>THE INSPECTOR SUBMITTED THE FORM</body></html>');
       return;
     }
     if (path === '/ping') {

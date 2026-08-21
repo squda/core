@@ -159,16 +159,17 @@ describe('the doors auth covers', () => {
   it('lets a real token through to form-spec', async () => {
     stubFetch((url) => fakeResponse(url, { body: loadFixture('form-login-minimal').html }));
 
-    const response = await guarded().request('/form-spec?url=https://the-internet.test/login', {
-      headers: { authorization: 'Bearer good' },
-    });
+    const response = await guarded().request(
+      '/form-spec?url=https://the-internet.test/login&browser=never',
+      { headers: { authorization: 'Bearer good' } },
+    );
 
     expect(response.status).toBe(200);
   });
 
   // /health has no token to offer a load balancer, and /demo pays for being
   // open with a rate limit instead. Both must stay reachable.
-  it.each(['/health', '/demo?url=https://a.test/'])('leaves %s open', async (path) => {
+  it.each(['/health', '/demo?url=https://a.test/&browser=never'])('leaves %s open', async (path) => {
     stubFetch((url) => fakeResponse(url, { body: loadFixture('form-login-minimal').html }));
 
     const response = await guarded().request(path);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixtureNames, loadFixture } from './fixtures.js';
+import { fixtureFileNames, fixtureNames, loadFixture } from './fixtures.js';
 
 /**
  * Guards the fixture set itself. Cheap, and it fails the moment a page is
@@ -7,6 +7,11 @@ import { fixtureNames, loadFixture } from './fixtures.js';
  * much later as a confusing missing-file error inside an extraction test.
  */
 describe('fixtures', () => {
+  it('has exactly one manifest row for every captured HTML file', () => {
+    expect([...fixtureNames].sort()).toEqual(fixtureFileNames);
+    expect(new Set(fixtureNames).size).toBe(fixtureNames.length);
+  });
+
   it('covers the page shapes Phase 1 needs', () => {
     expect(fixtureNames).toEqual(
       expect.arrayContaining(['blog-post', 'docs-page', 'wikipedia', 'form-page']),

@@ -11,6 +11,7 @@
     "test": "pnpm --filter @untitled/core test",
     "test:watch": "pnpm --filter @untitled/core test:watch",
     "test:browser": "pnpm --filter @untitled/core test:browser",
+    "check:forms-live": "pnpm --filter @untitled/core check:forms-live",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write ."

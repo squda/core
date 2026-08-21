@@ -497,9 +497,10 @@ function selectorFor($: cheerio.CheerioAPI, element: Element, formSelector: stri
  * unique today and different tomorrow, which is the one thing a selector must
  * not be.
  */
-function isStableId(id: string): boolean {
+export function isStableId(id: string): boolean {
   if (/[:«»\s]/.test(id)) return false;
   if (/^[0-9a-f]{16,}$/i.test(id)) return false;
+  if (/[-_][0-9a-f]{8,}$/i.test(id)) return false;
   if (/^(radix|headlessui|mui|mantine)-/i.test(id)) return false;
   return true;
 }

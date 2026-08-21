@@ -9,8 +9,8 @@ import { z } from 'zod';
  * written, which is why the plan insists it is settled before any code is
  * written against it.
  *
- * It is designed against the six real forms in fixtures/, not from memory. The
- * survey that produced it: 69 controls, of which 25 carry `autocomplete`, 19
+ * It began with a survey of real captured forms rather than an imagined clean
+ * form. That original survey found 69 controls, of which 25 carry `autocomplete`, 19
  * carry `aria-describedby`, 18 have no label at all, 8 are hidden, and one
  * page holds five separate <form> elements. Every decision below is downstream
  * of one of those numbers.
@@ -24,9 +24,8 @@ import { z } from 'zod';
  * check, upload — not which tag the page used.
  *
  * `custom` is the honest bucket for a React combobox: a div that behaves like
- * a control. None of the six fixtures uses a native <select>, which is itself
- * the finding — modern forms reach for widgets, and pretending otherwise would
- * make this schema describe a web that no longer exists.
+ * a control. The corpus contains both native selects and modern widgets, so
+ * the schema has to describe both without pretending one is the other.
  */
 export const FieldTypeSchema = z.enum([
   'text',
@@ -79,6 +78,23 @@ export const FieldOptionSchema = z.object({
   selected: z.boolean(),
 });
 
+/**
+ * A boundary crossed on the way from the page document to a control.
+ *
+ * A CSS selector alone cannot enter an iframe, and browser DOM APIs require an
+ * explicit shadow-root hop. Keeping those hops structured means the eventual
+ * filler can replay the same route instead of trying to parse a magic string.
+ */
+export const FieldScopeSchema = z.object({
+  kind: z.enum(['frame', 'shadow']),
+  selector: z.string().min(1),
+});
+
+export const FieldLocatorSchema = z.object({
+  scopes: z.array(FieldScopeSchema),
+  selector: z.string().min(1),
+});
+
 export const FieldSchema = z.object({
   /**
    * How to find this control again in a browser.
@@ -89,6 +105,16 @@ export const FieldSchema = z.object({
    * mode that makes the whole system look unreliable.
    */
   selector: z.string().min(1),
+
+  /**
+   * The complete browser route to the control when it was read from a live
+   * page. Static HTML extraction leaves this absent because it cannot know
+   * which live document or shadow root produced serialized markup.
+   */
+  locator: FieldLocatorSchema.optional(),
+
+  /** Zero-based wizard step where live inspection first saw the field. */
+  stepIndex: z.number().int().nonnegative().optional(),
 
   name: z.string().nullable(),
   id: z.string().nullable(),
@@ -171,27 +197,43 @@ export const FormSchema = z.object({
   method: z.enum(['get', 'post']),
   /** The button that submits it. Null when there isn't one to find. */
   submitSelector: z.string().nullable(),
+  /** Zero-based wizard step where live inspection saw this form state. */
+  stepIndex: z.number().int().nonnegative().optional(),
   fields: z.array(FieldSchema),
+});
+
+export const FormInspectionWarningSchema = z.object({
+  code: z.enum([
+    'step-limit',
+    'step-stalled',
+    'closed-shadow-root',
+    'branch-not-exhaustive',
+  ]),
+  message: z.string().min(1),
 });
 
 /**
  * Every form on one page.
  *
- * A list, not a single form, because five of the six fixtures have more than
- * one — Wikipedia's signup page has three, the checkout demo has five. A
- * schema that assumed "the form" would have been wrong on the first real page
- * it met.
+ * A list, not a single form, because real pages often contain search, feedback
+ * and primary forms together. A schema that assumed "the form" would have
+ * been wrong on the first such page it met.
  */
 export const FormSpecSchema = z.object({
   url: z.string().url(),
   fetchedAt: z.coerce.date(),
   fetchedWith: z.enum(['http', 'browser']),
   forms: z.array(FormSchema),
+  /** Honest limits encountered while inspecting a live page. */
+  warnings: z.array(FormInspectionWarningSchema).optional(),
 });
 
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 export type LabelSource = z.infer<typeof LabelSourceSchema>;
 export type FieldOption = z.infer<typeof FieldOptionSchema>;
+export type FieldScope = z.infer<typeof FieldScopeSchema>;
+export type FieldLocator = z.infer<typeof FieldLocatorSchema>;
 export type Field = z.infer<typeof FieldSchema>;
 export type Form = z.infer<typeof FormSchema>;
+export type FormInspectionWarning = z.infer<typeof FormInspectionWarningSchema>;
 export type FormSpec = z.infer<typeof FormSpecSchema>;

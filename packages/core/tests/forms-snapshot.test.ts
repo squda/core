@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractForms } from '../src/core/forms.js';
-import { loadFixture } from './fixtures.js';
+import { formFixtureNames, loadFixture } from './fixtures.js';
 import type { Field, FormSpec } from '@untitled/schema';
 
 /**
@@ -9,7 +9,7 @@ import type { Field, FormSpec } from '@untitled/schema';
  * These answer a different question from forms.test.ts. Those tests assert
  * things I thought to check; these notice things I did not — a label that
  * quietly changes source, a selector that gets longer, a field that stops
- * being grouped, on any of the six pages at once.
+ * being grouped, anywhere in the canonical form corpus.
  *
  * The plan's warning applies and is worth repeating where it can be read: **a
  * snapshot only tells you something changed, never that it is correct.** When
@@ -21,9 +21,8 @@ import type { Field, FormSpec } from '@untitled/schema';
  * unreadable, and an unreadable diff gets accepted without being read, which
  * defeats the point of having it.
  *
- * One row is deliberately enormous: form-native-select's country list runs to
- * 264 options on a single line. Left as it is — truncating it would hide the
- * day the list comes back with three.
+ * Long option lists use one line per option. The explicit count assertion in
+ * forms.test.ts catches truncation; this view keeps individual changes readable.
  */
 
 function render(spec: FormSpec): string {
@@ -62,10 +61,11 @@ function renderField(field: Field): string[] {
   if (field.description) lines.push(`      help: ${field.description}`);
   if (field.placeholder) lines.push(`      placeholder: ${field.placeholder}`);
   if (field.options.length > 0) {
+    lines.push('      options:');
     lines.push(
-      `      options: ${field.options
-        .map((option) => `${option.label}=${option.value}${option.selected ? '*' : ''}`)
-        .join(', ')}`,
+      ...field.options.map(
+        (option) => `        - ${option.label}=${option.value}${option.selected ? '*' : ''}`,
+      ),
     );
   }
 
@@ -80,19 +80,8 @@ function renderField(field: Field): string[] {
   return lines;
 }
 
-const FIXTURES = [
-  'form-job-application',
-  'form-page',
-  'form-native-select',
-  'form-all-controls',
-  'form-select-minimal',
-  'form-login-minimal',
-  'form-login-nolabels',
-  'form-shadow-dom',
-] as const;
-
 describe('the FormSpec of every captured form', () => {
-  it.each(FIXTURES)('%s', (name) => {
+  it.each(formFixtureNames)('%s', (name) => {
     expect(render(extractForms(loadFixture(name)))).toMatchSnapshot();
   });
 
@@ -112,7 +101,7 @@ describe('what the shape of the output is', () => {
   // Not a snapshot: a snapshot would happily record a day where every field
   // lost its selector. These are the invariants that must hold whatever the
   // pages do.
-  it.each(FIXTURES)('%s keeps every field addressable and typed', (name) => {
+  it.each(formFixtureNames)('%s keeps every field addressable and typed', (name) => {
     const fields = extractForms(loadFixture(name)).forms.flatMap((form) => form.fields);
 
     expect(fields.length).toBeGreaterThan(0);

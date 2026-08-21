@@ -476,7 +476,7 @@ describe('GET /form-spec', () => {
     stubFetch((url) => fakeResponse(url, { body: html }));
 
     const response = await createApp().request(
-      '/form-spec?url=https://the-internet.herokuapp.com/login',
+      '/form-spec?url=https://the-internet.herokuapp.com/login&browser=never',
     );
     const spec = (await response.json()) as { forms: { fields: unknown[] }[] };
 
@@ -490,7 +490,9 @@ describe('GET /form-spec', () => {
     const html = loadFixture('form-job-application').html;
     stubFetch((url) => fakeResponse(url, { body: html }));
 
-    const response = await createApp().request('/form-spec?url=https://job-boards.test/x');
+    const response = await createApp().request(
+      '/form-spec?url=https://job-boards.test/x&browser=never',
+    );
     const spec = (await response.json()) as { forms: { fields: { label: string }[] }[] };
     const fields = spec.forms.flatMap((form) => form.fields);
 
@@ -519,7 +521,7 @@ describe('GET /form-spec', () => {
   it('fetches through the guarded path, not around it', async () => {
     const fetchSpy = stubFetch((url) => fakeResponse(url, { body: '<form><input></form>' }));
 
-    await createApp().request('/form-spec?url=https://example.com/');
+    await createApp().request('/form-spec?url=https://example.com/&browser=never');
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
@@ -608,7 +610,7 @@ describe('GET /demo', () => {
   it('answers both halves in one call', async () => {
     page();
 
-    const response = await createApp().request('/demo?url=https://a.test/signup');
+    const response = await createApp().request('/demo?url=https://a.test/signup&browser=never');
     const body = (await response.json()) as {
       spec: { forms: unknown[] };
       text: { markdown: string; characters: number; truncated: boolean };
@@ -637,10 +639,10 @@ describe('GET /demo', () => {
     page();
     const app = createApp({ demoRateLimit: 2, callerKey: () => 'one-caller' });
 
-    expect((await app.request('/demo?url=https://a.test/1')).status).toBe(200);
-    expect((await app.request('/demo?url=https://a.test/2')).status).toBe(200);
+    expect((await app.request('/demo?url=https://a.test/1&browser=never')).status).toBe(200);
+    expect((await app.request('/demo?url=https://a.test/2&browser=never')).status).toBe(200);
 
-    const refused = await app.request('/demo?url=https://a.test/3');
+    const refused = await app.request('/demo?url=https://a.test/3&browser=never');
     expect(refused.status).toBe(429);
     expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(0);
     expect((await refused.json()).error.code).toBe('rate-limited');
@@ -651,18 +653,18 @@ describe('GET /demo', () => {
     let who = 'first';
     const app = createApp({ demoRateLimit: 1, callerKey: () => who });
 
-    expect((await app.request('/demo?url=https://a.test/1')).status).toBe(200);
-    expect((await app.request('/demo?url=https://a.test/2')).status).toBe(429);
+    expect((await app.request('/demo?url=https://a.test/1&browser=never')).status).toBe(200);
+    expect((await app.request('/demo?url=https://a.test/2&browser=never')).status).toBe(429);
 
     who = 'second';
-    expect((await app.request('/demo?url=https://a.test/3')).status).toBe(200);
+    expect((await app.request('/demo?url=https://a.test/3&browser=never')).status).toBe(200);
   });
 
   it('reports what is left, so a client need not guess', async () => {
     page();
     const app = createApp({ demoRateLimit: 3, callerKey: () => 'x' });
 
-    const response = await app.request('/demo?url=https://a.test/1');
+    const response = await app.request('/demo?url=https://a.test/1&browser=never');
     expect(response.headers.get('x-ratelimit-remaining')).toBe('2');
   });
 
@@ -672,7 +674,7 @@ describe('GET /demo', () => {
     const long = `<html><body><article>${'word '.repeat(30_000)}</article></body></html>`;
     stubFetch((url) => fakeResponse(url, { body: long }));
 
-    const response = await createApp().request('/demo?url=https://a.test/long');
+    const response = await createApp().request('/demo?url=https://a.test/long&browser=never');
     const body = (await response.json()) as {
       text: { markdown: string; truncated: boolean; characters: number };
     };
@@ -685,7 +687,7 @@ describe('GET /demo', () => {
   it('reports a refusing site the same way the other endpoints do', async () => {
     stubFetch((url) => fakeResponse(url, { status: 403, body: 'no' }));
 
-    const response = await createApp().request('/demo?url=https://blocked.test/');
+    const response = await createApp().request('/demo?url=https://blocked.test/&browser=never');
 
     expect(response.status).toBe(502);
     expect((await response.json()).error.code).toBe('http-status');

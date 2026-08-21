@@ -60,14 +60,14 @@ $ pnpm serve
 scrape service listening on http://localhost:3000 (cache: .cache/scrape.db)
 ```
 
-| route                 | what it does                                                                                  |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `POST /scrape`        | `{ url, browser? }` → the document now. Cached pages answer in ~2ms.                          |
-| `POST /jobs`          | same body → `202` + a job id, for pages that need a browser                                   |
-| `GET /jobs/:id`       | `queued` / `running` / `done` / `failed`, with the document or error                          |
-| `GET /form-spec?url=` | the same page read for structure: every form, every field, every label and where it came from |
-| `GET /demo?url=`      | both halves in one call, for the public page. No token; rate limited instead                  |
-| `GET /health`         | browser pool and job counts                                                                   |
+| route                 | what it does                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `POST /scrape`        | `{ url, browser? }` → the document now. Cached pages answer in ~2ms.                      |
+| `POST /jobs`          | same body → `202` + a job id, for pages that need a browser                               |
+| `GET /jobs/:id`       | `queued` / `running` / `done` / `failed`, with the document or error                      |
+| `GET /form-spec?url=` | live form structure, including frame/shadow locators and safely discoverable wizard steps |
+| `GET /demo?url=`      | both halves in one call, for the public page. No token; rate limited instead              |
+| `GET /health`         | browser pool and job counts                                                               |
 
 Responses carry `x-cache: hit|miss`. Env vars: `PORT`, `CACHE_PATH`, `BROWSER_CONCURRENCY`,
 `CORS_ORIGINS` (comma-separated; empty means no CORS headers at all, which is the default).
@@ -110,6 +110,7 @@ strategy is chosen by `select.ts`, a pure function over a fetch that already hap
 | `packages/schema/`            | `FormSpec` and the reasoning behind each field. Zero dependencies except zod, so a browser can import it            |
 | `packages/core/src/core/`     | the pipeline: url → fetch result → document. Knows nothing about HTTP, browsers, databases or processes             |
 | `packages/core/src/fetching/` | getting the bytes: the `FetchStrategy` seam, the HTTP and browser implementations, the browser pool, the SSRF guard |
+| `packages/core/src/forms/`    | live form inspection: DOM scopes, wizard traversal, synthetic discovery values, and inspection warnings             |
 | `packages/core/src/service/`  | the HTTP adapter: routes, cache, job queue                                                                          |
 | `packages/core/src/support/`  | primitives with no domain in them: concurrency limiter, logger, config, text                                        |
 | `packages/core/src/cli.ts`    | entry point — argv in, Markdown or JSON out                                                                         |
@@ -129,15 +130,22 @@ validated it with, and why it has no way to reach Playwright or a database drive
 ```
 pnpm test           fast suite — no network, no browser (~3s)
 pnpm test:browser   real Chromium against a local server (~11s)
+pnpm check:forms-live  optional network smoke check against public signup, checkout and government forms
 pnpm typecheck      every package
 pnpm lint
 pnpm format
 ```
 
 Tests never hit the live network. Everything they need lives under `packages/core/tests/` — the
-specs, the `fixtures/` directory holding seventeen real captured pages, and the grabber that
+specs, the `fixtures/` directory holding twenty real captured pages, and the grabber that
 captures them. Add one with `pnpm fixture <url> <name> [--browser]` from inside `packages/core`;
 see [the fixtures README](./packages/core/tests/fixtures/README.md).
+
+`/form-spec` uses Chromium for `browser=auto` (the default) and `browser=always`, because static
+HTML cannot contain an iframe document or a shadow root. It follows only clearly named
+Next/Continue controls, never a final Submit/Apply/Pay control, and reports warnings when a path
+stalls, reaches its step budget, contains a closed shadow root, or represents only one branch.
+Use `browser=never` when a static first-page description is specifically what you want.
 
 Requires Node 22+, pnpm, and `npx playwright install chromium` for the browser path. Both entry
 points refuse to start on anything older and say so in one line — `.nvmrc` pins the version, so
