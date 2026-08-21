@@ -157,6 +157,14 @@ describe('against the real fixtures', () => {
     expect(scraped.feeds).toEqual([]);
   });
 
+  it('does not mistake visual product cards for publisher-declared structured data', () => {
+    const scraped = scrapeHtml(loadFixture('book-listing'));
+
+    expect(scraped.structured).toBeNull();
+    expect(scraped.markdown).toContain('A Light in the Attic');
+    expect(scraped.links.some((link) => link.href.includes('page-2.html'))).toBe(true);
+  });
+
   it('leaves the existing title alone when a page has both', () => {
     // <title> still wins: JSON-LD is a fallback, not an override.
     expect(scrapeHtml(loadFixture('wikipedia')).title).toBe('Web scraping - Wikipedia');

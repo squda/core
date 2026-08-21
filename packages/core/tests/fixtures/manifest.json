@@ -168,5 +168,35 @@
     "fetchedAt": "2026-08-16T04:30:26.174Z",
     "bytes": 57383,
     "fetchedWith": "http"
+  },
+  {
+    "name": "form-signup",
+    "url": "https://www.qapractice.com/register",
+    "finalUrl": "https://www.qapractice.com/register",
+    "status": 200,
+    "contentType": "text/html",
+    "fetchedAt": "2026-08-21T00:56:25.442Z",
+    "bytes": 13181,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "form-government-wizard",
+    "url": "https://www.gov.uk/check-student-finance-eligibility-nationality-residency/y",
+    "finalUrl": "https://www.gov.uk/check-student-finance-eligibility-nationality-residency/y",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "fetchedAt": "2026-08-21T00:56:37.964Z",
+    "bytes": 66892,
+    "fetchedWith": "browser"
+  },
+  {
+    "name": "form-checkout",
+    "url": "https://demo.guru99.com/payment-gateway/process_purchasetoy.php",
+    "finalUrl": "https://demo.guru99.com/payment-gateway/process_purchasetoy.php",
+    "status": 200,
+    "contentType": "text/html; charset=UTF-8",
+    "fetchedAt": "2026-08-21T01:00:56.133Z",
+    "bytes": 120258,
+    "fetchedWith": "browser"
   }
 ]

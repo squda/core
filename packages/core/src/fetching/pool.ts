@@ -2,6 +2,11 @@ import { Limiter } from '../support/limit.js';
 import type { FetchStrategy } from './strategy.js';
 import type { BrowserFetchOptions } from './browser.js';
 import type { HtmlDocument } from '../core/types.js';
+import type { BrowserFormInspection } from '../forms/live-inspector.js';
+
+interface BrowserAdapter extends FetchStrategy {
+  inspectForms(url: string, options?: BrowserFetchOptions): Promise<BrowserFormInspection>;
+}
 
 /**
  * One browser, shared, with a hard cap on how many pages use it at once.
@@ -41,8 +46,8 @@ export class BrowserPool {
   readonly #idleMs: number;
   readonly #launchArgs: string[];
 
-  #strategy: FetchStrategy | null = null;
-  #starting: Promise<FetchStrategy> | null = null;
+  #strategy: BrowserAdapter | null = null;
+  #starting: Promise<BrowserAdapter> | null = null;
   #idleTimer: NodeJS.Timeout | null = null;
   #launches = 0;
 
@@ -72,6 +77,20 @@ export class BrowserPool {
     });
   }
 
+  async inspectForms(
+    url: string,
+    options: BrowserFetchOptions = {},
+  ): Promise<BrowserFormInspection> {
+    return this.#limiter.run(async () => {
+      const strategy = await this.#acquire();
+      try {
+        return await strategy.inspectForms(url, options);
+      } finally {
+        this.#releaseWhenIdle();
+      }
+    });
+  }
+
   /** Shuts the browser down now, whatever the idle setting says. */
   async close(): Promise<void> {
     this.#cancelIdleTimer();
@@ -86,7 +105,7 @@ export class BrowserPool {
    * Held as a promise while launching, so two callers arriving together share
    * one launch rather than racing to start two browsers.
    */
-  async #acquire(): Promise<FetchStrategy> {
+  async #acquire(): Promise<BrowserAdapter> {
     this.#cancelIdleTimer();
     if (this.#strategy) return this.#strategy;
 

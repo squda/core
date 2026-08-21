@@ -249,15 +249,9 @@ Five moving parts. Part A is the whole first half of the project; Part B is the 
 3. Label resolution, in priority order: `<label for=id>` → wrapping `<label>` → `aria-label` / `aria-labelledby` → `placeholder` → nearest preceding text node. Test each path — this is where real sites are messiest.
 4. Generate a **stable selector** per field. Prefer `#id`, then `[name=]`, then a scoped CSS path. Do _not_ use auto-generated class names — they change on every deploy.
 5. Add `GET /form-spec?url=` to the service.
-6. Build a fixture set of 8–10 real forms: a job application, a signup, a checkout, a government form, a multi-step wizard. Snapshot-test the FormSpec for each. — **Done 2026-08-14**, six forms, rendered as a readable table rather than raw JSON: a 1,200-line diff of object literals gets accepted without being read, which defeats the point of having it.
-   > **Targets chosen and captured 2026-08-14** (see fixtures/README.md): a real GitLab
-   > application on Greenhouse (22 inputs, 2 file uploads), demoqa's practice form (radios,
-   > checkboxes, date picker, multi-select — needs a browser), Wikipedia's signup, a checkout
-   > modal, a two-field login, and a login with **no labels at all**, which is where label
-   > resolution has to earn its place. Still missing: a multi-step wizard, and a real government
-   > form — gov.uk's flows need a session, so that one may have to be built locally.
+6. Build a fixture set of 8–10 real forms: a job application, a signup, a checkout, a government form, a multi-step wizard. Snapshot-test the FormSpec for each. — **Completed and strengthened 2026-08-21.** The canonical suite now snapshots ten real forms, including all five named categories. A supplementary shadow-DOM capture is kept outside that suite because saved HTML cannot materialize its roots. Snapshots use readable tables with long options rendered one per line. The government fixture records the first state of GOV.UK's student-finance wizard; deterministic browser tests traverse a two-step server-backed wizard, and the optional live smoke check verifies the production path against GOV.UK itself.
 
-**Done when:** you can point it at a real signup form and get back a JSON list of fields with correct human-readable labels. — **Done 2026-08-14.** `GET /form-spec?url=` returns all 22 fields of the live GitLab application with their labels, types and `autocomplete` tokens, and escalates to a browser for demoqa's form, where the radios come back as one `Gender` field with three options.
+**Done when:** you can point it at a real signup form and get back a JSON list of fields with correct human-readable labels. — **Done and reverified 2026-08-21.** The production browser inspector returns Email Address, Password and Confirm Password from the public QA Practice signup, card/expiry/CVV controls from a public test checkout, and multiple observed states from GOV.UK's eligibility wizard. It also returns structured iframe/shadow-root locator hops and honest warnings when wizard traversal stalls or covers only one branch.
 
 **Order of work:** write the `FormSpec` Zod schema first and then leave it alone for the rest of the phase — everything in Part B is built against it. Collect the fixtures _before_ writing the walker, so you're designing against real messiness instead of an imagined form. Then field discovery + selectors, then label resolution, then the snapshots.
 

@@ -12,6 +12,7 @@
     "fixture": "tsx tests/grab-fixture.ts",
     "test:watch": "vitest",
     "test:browser": "vitest run --config vitest.browser.config.ts",
+    "check:forms-live": "tsx tests/check-live-forms.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

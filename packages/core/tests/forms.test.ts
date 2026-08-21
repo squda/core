@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extractForms } from '../src/core/forms.js';
 import { htmlDocument } from './helpers.js';
-import { loadFixture } from './fixtures.js';
+import { formFixtureNames, loadFixture } from './fixtures.js';
 
 /** One form's fields, from a fragment of HTML. */
 function fieldsOf(html: string) {
@@ -263,19 +263,8 @@ describe('constraints', () => {
   });
 });
 
-describe('against the eight real forms', () => {
-  const names = [
-    'form-job-application',
-    'form-page',
-    'form-native-select',
-    'form-all-controls',
-    'form-select-minimal',
-    'form-login-minimal',
-    'form-login-nolabels',
-    'form-shadow-dom',
-  ];
-
-  it.each(names)('%s parses into a FormSpec', (name) => {
+describe('against the real form corpus', () => {
+  it.each(formFixtureNames)('%s parses into a FormSpec', (name) => {
     const spec = extractForms(loadFixture(name));
 
     expect(spec.forms.length).toBeGreaterThan(0);
@@ -425,5 +414,51 @@ describe('against the eight real forms', () => {
 
     expect(fields.every((field) => field.labelSource !== 'label-for')).toBe(true);
     expect(fields.every((field) => field.labelSource === 'placeholder')).toBe(true);
+  });
+
+  it('reads the real signup fields and their human labels', () => {
+    const fields = extractForms(loadFixture('form-signup')).forms.flatMap((form) => form.fields);
+
+    expect(fields.map((field) => [field.label, field.type])).toEqual([
+      ['Email Address', 'email'],
+      ['Password', 'password'],
+      ['Confirm Password', 'password'],
+    ]);
+  });
+
+  it('reads card, expiry and security-code controls from the test checkout', () => {
+    const fields = extractForms(loadFixture('form-checkout')).forms.flatMap((form) => form.fields);
+
+    expect(fields.find((field) => field.id === 'card_nmuber')).toMatchObject({
+      label: 'Enter Your Card Number',
+      maxLength: 16,
+      sensitive: true,
+    });
+    expect(fields.find((field) => field.id === 'month')?.type).toBe('select');
+    expect(fields.find((field) => field.id === 'year')?.type).toBe('select');
+    expect(fields.find((field) => field.id === 'cvv_code')).toMatchObject({
+      label: 'CVV Code',
+      sensitive: true,
+    });
+  });
+
+  it('reads the first question of the real government wizard', () => {
+    const fields = extractForms(loadFixture('form-government-wizard')).forms.flatMap(
+      (form) => form.fields,
+    );
+    const courseStart = fields.find((field) => field.type === 'radio');
+
+    expect(courseStart?.label).toContain('When does your course start?');
+    expect(courseStart?.options.length).toBeGreaterThan(1);
+  });
+
+  it('rejects deployment-generated id suffixes in selectors', () => {
+    const search = extractForms(loadFixture('form-government-wizard'))
+      .forms.flatMap((form) => form.fields)
+      .find((field) => field.label === 'Search GOV.UK');
+
+    expect(search?.id).toMatch(/^search-main-[0-9a-f]{8}$/i);
+    expect(search?.selector).not.toBe(`#${search?.id}`);
+    expect(search?.selector).toContain('[name="keywords"]');
   });
 });

@@ -37,11 +37,121 @@ exports[`the FormSpec of every captured form > form-all-controls 1`] = `
   · Years of experience:  [select]
       selector: #select-menu
       from: label-for  name=-  id=select-menu
-      options: Select an option=0*, 0-1=1, 2-4=2, 5-9=3, 10+=4
+      options:
+        - Select an option=0*
+        - 0-1=1
+        - 2-4=2
+        - 5-9=3
+        - 10+=4
   · mm/dd/yyyy  [text]
       selector: #datepicker
       from: placeholder  name=-  id=datepicker
       placeholder: mm/dd/yyyy"
+`;
+
+exports[`the FormSpec of every captured form > form-checkout 1`] = `
+"FORM [name="fbal"]
+  POST → https://demo.guru99.com/payment-gateway/process_card.php
+  submit: [name="fbal"] [name="submit"]
+  · (no label)  [hidden]
+      selector: [name="fbal"] [name="prices"]
+      from: nothing  name=prices  id=-
+  · Enter Your Card Number  [text]  sensitive
+      selector: #card_nmuber
+      from: placeholder  name=card_nmuber  id=card_nmuber
+      placeholder: Enter Your Card Number
+      maxLength=16
+  · (no label)  [select]  required
+      selector: #month
+      from: nothing  name=month  id=month
+      options:
+        - Month=
+        - 01=1
+        - 02=2
+        - 03=3
+        - 04=4
+        - 05=5
+        - 06=6
+        - 07=7
+        - 08=8
+        - 09=9
+        - 10=10
+        - 11=11
+        - 12=12
+  · (no label)  [select]  required
+      selector: #year
+      from: nothing  name=year  id=year
+      options:
+        - Year=
+        - 2017=2017
+        - 2018=2018
+        - 2019=2019
+        - 2020=2020
+        - 2021=2021
+        - 2022=2022
+        - 2023=2023
+        - 2024=2024
+        - 2025=2025
+        - 2026=2026
+        - 2027=2027
+        - 2028=2028
+  · CVV Code  [text]  sensitive
+      selector: #cvv_code
+      from: placeholder  name=cvv_code  id=cvv_code
+      placeholder: CVV Code
+      maxLength=3"
+`;
+
+exports[`the FormSpec of every captured form > form-government-wizard 1`] = `
+"FORM #search
+  GET → https://www.gov.uk/search/all
+  submit: #search > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > button:nth-of-type(1)
+  · Search GOV.UK  [search]
+      selector: #search [name="keywords"]
+      from: label-for  name=keywords  id=search-main-a83cf87f
+      autocomplete: off
+      help: When search suggestions are available use up and down arrows to review and enter to select. Touch device users, explore by touch or with swipe gestures.
+
+FORM #content > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > form:nth-of-type(1)
+  GET → https://www.gov.uk/check-student-finance-eligibility-nationality-residency/y
+  submit: #content > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > form:nth-of-type(1) > button:nth-of-type(1)
+  · (no label)  [hidden]
+      selector: #response
+      from: nothing  name=response  id=response
+  · Check what student finance you can apply for depending on your nationality and residency 1. When does your course start?  [radio]
+      selector: #content > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > form:nth-of-type(1) [name="response"]
+      from: label-wrapping  name=response  id=radio-755923b6-0
+      options:
+        - On or after 1 January 2027=on-or-after-1-january-2027
+        - Before January 2027=before-january-2027
+
+FORM #something-is-wrong
+  POST → https://www.gov.uk/contact/govuk/problem_reports
+  submit: #something-is-wrong > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(5) > button:nth-of-type(1)
+  · (no label)  [hidden]
+      selector: #something-is-wrong [name="url"]
+      from: nothing  name=url  id=-
+  · This field is for robots only. Please leave blank  [text]
+      selector: #giraffe
+      from: label-for  name=giraffe  id=giraffe
+      autocomplete: off
+      pattern=.{0}
+  · What were you doing?  [textarea]
+      selector: #something-is-wrong [name="what_doing"]
+      from: label-for  name=what_doing  id=textarea-03f0975f
+      help: Do not include personal or financial information like your National Insurance number or credit card details.
+  · What went wrong?  [textarea]
+      selector: #something-is-wrong [name="what_wrong"]
+      from: label-for  name=what_wrong  id=textarea-c87d1622
+  · (no label)  [hidden]
+      selector: #something-is-wrong [name="javascript_enabled"]
+      from: nothing  name=javascript_enabled  id=-
+  · (no label)  [hidden]
+      selector: #something-is-wrong [name="referrer"]
+      from: nothing  name=referrer  id=-
+  · (no label)  [hidden]
+      selector: #something-is-wrong [name="timer"]
+      from: nothing  name=timer  id=-"
 `;
 
 exports[`the FormSpec of every captured form > form-job-application 1`] = `
@@ -86,15 +196,15 @@ exports[`the FormSpec of every captured form > form-job-application 1`] = `
       from: label-for  name=-  id=cover_letter
       accept=.pdf,.doc,.docx,.txt,.rtf
   · LinkedIn Profile  [text]
-      selector: #question_36101205002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101205002
       maxLength=255
   · What's the name you'd prefer us to use throughout the interview process?  [text]
-      selector: #question_36101206002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101206002
       maxLength=255
   · Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?*  [text]  required
-      selector: #question_36101207002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101207002
       autocomplete: off
       help: Select...
@@ -102,11 +212,11 @@ exports[`the FormSpec of every captured form > form-job-application 1`] = `
       selector: #application-form > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
       from: nothing  name=-  id=-
   · It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.  [text]
-      selector: #question_36101208002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101208002
       maxLength=255
   · Will you now or in the future require sponsorship for a visa to remain in your current location?*  [text]  required
-      selector: #question_36101209002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101209002
       autocomplete: off
       help: Select...
@@ -114,7 +224,7 @@ exports[`the FormSpec of every captured form > form-job-application 1`] = `
       selector: #application-form > div:nth-of-type(2) > div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
       from: nothing  name=-  id=-
   · Have you previously worked at or consulted for GitLab?*  [text]  required
-      selector: #question_36101210002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101210002
       autocomplete: off
       help: Select...
@@ -122,7 +232,7 @@ exports[`the FormSpec of every captured form > form-job-application 1`] = `
       selector: #application-form > div:nth-of-type(2) > div:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
       from: nearby-text  name=-  id=-
   · What is your current country of residence?*  [text]  required
-      selector: #question_36101211002
+      selector: #application-form > div:nth-of-type(2) > div:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)
       from: label-for  name=-  id=question_36101211002
       autocomplete: off
       help: Select...
@@ -374,7 +484,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": false,
-        "selector": "#question_36101205002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -398,7 +508,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": false,
-        "selector": "#question_36101206002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -422,7 +532,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": true,
-        "selector": "#question_36101207002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -470,7 +580,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": false,
-        "selector": "#question_36101208002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -494,7 +604,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": true,
-        "selector": "#question_36101209002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -542,7 +652,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": true,
-        "selector": "#question_36101210002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(6) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -590,7 +700,7 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
         "placeholder": null,
         "readonly": false,
         "required": true,
-        "selector": "#question_36101211002",
+        "selector": "#application-form > div:nth-of-type(2) > div:nth-of-type(7) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > input:nth-of-type(1)",
         "sensitive": false,
         "step": null,
         "type": "text",
@@ -825,7 +935,271 @@ exports[`the FormSpec of every captured form > form-native-select 1`] = `
   · Country:  [select]
       selector: body:nth-of-type(1) > div:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(2) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > form:nth-of-type(1) [name="country"]
       from: nearby-text  name=country  id=-
-      options: ALBANIA=ALBANIA, ALGERIA=ALGERIA, AMERICAN SAMOA=AMERICAN SAMOA, ANDORRA=ANDORRA, ANGOLA=ANGOLA, ANGUILLA=ANGUILLA, ANTARCTICA=ANTARCTICA, ANTIGUA AND BARBUDA=ANTIGUA AND BARBUDA, ARGENTINA=ARGENTINA, ARMENIA=ARMENIA, ARUBA=ARUBA, ASHMORE AND CARTIER ISLANDS=ASHMORE AND CARTIER ISLANDS, AUSTRALIA=AUSTRALIA, AUSTRIA=AUSTRIA, AZERBAIJAN=AZERBAIJAN, BAHAMAS=BAHAMAS, BAHRAIN=BAHRAIN, BAKER ISLAND=BAKER ISLAND, BANGLADESH=BANGLADESH, BARBADOS=BARBADOS, BASSA DE INDIA=BASSA DE INDIA, BELARUS=BELARUS, BELGIUM=BELGIUM, BELIZE=BELIZE, BENIN=BENIN, BERMUDA=BERMUDA, BHUTAN=BHUTAN, BOLIVIA=BOLIVIA, BOSNIA AND HERZEGOVINA=BOSNIA AND HERZEGOVINA, BOTSWANA=BOTSWANA, BOUVET ISLAND=BOUVET ISLAND, BRAZIL=BRAZIL, BRITISH INDIAN OCEAN TERRITORY=BRITISH INDIAN OCEAN TERRITORY, BRITISH VIRGIN ISLANDS=BRITISH VIRGIN ISLANDS, BRUNEI=BRUNEI, BULGARIA=BULGARIA, BURKINA FASO=BURKINA FASO, BURMA=BURMA, BURUNDI=BURUNDI, CAMBODIA=CAMBODIA, CAMEROON=CAMEROON, CANADA=CANADA, CAPE VERDE=CAPE VERDE, CAYMAN ISLANDS=CAYMAN ISLANDS, CENTRAL AFRICAN REPUBLIC=CENTRAL AFRICAN REPUBLIC, CHAD=CHAD, CHILE=CHILE, CHINA=CHINA, CHRISTMAS ISLAND=CHRISTMAS ISLAND, CLIPPERTON ISLAND=CLIPPERTON ISLAND, COCOS (KEELING) ISLANDS=COCOS (KEELING) ISLANDS, COLOMBIA=COLOMBIA, COMOROS=COMOROS, CONGO=CONGO, COOK ISLANDS=COOK ISLANDS, CORAL SEA ISLANDS=CORAL SEA ISLANDS, COSTA RICA=COSTA RICA, COTE D'IVOIRE=COTE D'IVOIRE, CROATIA=CROATIA, CUBA=CUBA, CYPRUS=CYPRUS, CZECH REPUBLIC=CZECH REPUBLIC, DENMARK=DENMARK, DJIBOUTI=DJIBOUTI, DOMINICA=DOMINICA, DOMINICAN REPUBLIC=DOMINICAN REPUBLIC, ECUADOR=ECUADOR, EGYPT=EGYPT, EL SALVADOR=EL SALVADOR, EQUATORIAL GUINEA=EQUATORIAL GUINEA, ERITREA=ERITREA, ESTONIA=ESTONIA, ETHIOPIA=ETHIOPIA, EUROPA ISLAND=EUROPA ISLAND, FALKLAND ISLANDS=FALKLAND ISLANDS, FAROE ISLANDS=FAROE ISLANDS, FIJI=FIJI, FINLAND=FINLAND, FRANCE=FRANCE, FRENCH GUIANA=FRENCH GUIANA, FRENCH POLYNESIA=FRENCH POLYNESIA, FRENCH SOUTHERN AND ANTARCTIC LANDS=FRENCH SOUTHERN AND ANTARCTIC LANDS, GABON=GABON, GAMBIA, THE=GAMBIA, THE, GAZA STRIP=GAZA STRIP, GEORGIA=GEORGIA, GERMANY=GERMANY, GHANA=GHANA, GIBRALTAR=GIBRALTAR, GLORIOSO ISLANDS=GLORIOSO ISLANDS, GREECE=GREECE, GREENLAND=GREENLAND, GRENADA=GRENADA, GUADELOUPE=GUADELOUPE, GUAM=GUAM, GUATEMALA=GUATEMALA, GUERNSEY=GUERNSEY, GUINEA=GUINEA, GUINEA-BISSAU=GUINEA-BISSAU, GUYANA=GUYANA, HAITI=HAITI, HEARD ISLAND AND MCDONALD ISLANDS=HEARD ISLAND AND MCDONALD ISLANDS, HONDURAS=HONDURAS, HONG KONG=HONG KONG, HOWLAND ISLAND=HOWLAND ISLAND, HUNGARY=HUNGARY, ICELAND=ICELAND, INDIA=INDIA, INDONESIA=INDONESIA, IRAN=IRAN, IRAQ=IRAQ, IRELAND=IRELAND, ISRAEL=ISRAEL, ITALY=ITALY, JAMAICA=JAMAICA, JAN MAYEN=JAN MAYEN, JAPAN=JAPAN, JARVIS ISLAND=JARVIS ISLAND, JERSEY=JERSEY, JOHNSTON ATOLL=JOHNSTON ATOLL, JORDAN=JORDAN, JUAN DE NOVA ISLAND=JUAN DE NOVA ISLAND, KAZAKHSTAN=KAZAKHSTAN, KENYA=KENYA, KINGMAN REEF=KINGMAN REEF, KIRIBATI=KIRIBATI, KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF=KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF, KOREA, REPUBLIC OF=KOREA, REPUBLIC OF, KUWAIT=KUWAIT, KYRGYZSTAN=KYRGYZSTAN, LAOS=LAOS, LATVIA=LATVIA, LEBANON=LEBANON, LESOTHO=LESOTHO, LIBERIA=LIBERIA, LIBYA=LIBYA, LIECHTENSTEIN=LIECHTENSTEIN, LITHUANIA=LITHUANIA, LUXEMBOURG=LUXEMBOURG, MACAU=MACAU, MACEDONIA, FORMER REPUBLIC OF=MACEDONIA, FORMER REPUBLIC OF, MADAGASCAR=MADAGASCAR, MALAWI=MALAWI, MALAYSIA=MALAYSIA, MALDIVES=MALDIVES, MALI=MALI, MALTA=MALTA, MAN, ISLE OF=MAN, ISLE OF, MARSHALL ISLANDS=MARSHALL ISLANDS, MARTINIQUE=MARTINIQUE, MAURITANIA=MAURITANIA, MAURITIUS=MAURITIUS, MAYOTTE=MAYOTTE, MEXICO=MEXICO, MICRONESIA=MICRONESIA, MIDWAY ISLANDS=MIDWAY ISLANDS, MOLDOVA=MOLDOVA, MONACO=MONACO, MONGOLIA=MONGOLIA, MONTENEGRO=MONTENEGRO, MONTSERRAT=MONTSERRAT, MOROCCO=MOROCCO, MOZAMBIQUE=MOZAMBIQUE, NAMIBIA=NAMIBIA, NAURU=NAURU, NAVASSA ISLAND=NAVASSA ISLAND, NEPAL=NEPAL, NETHERLANDS=NETHERLANDS, NETHERLANDS ANTILLES=NETHERLANDS ANTILLES, NEW CALEDONIA=NEW CALEDONIA, NEW ZEALAND=NEW ZEALAND, NICARAGUA=NICARAGUA, NIGER=NIGER, NIGERIA=NIGERIA, NIUE=NIUE, NO MANS LAND=NO MANS LAND, NORFOLK ISLAND=NORFOLK ISLAND, NORTHERN MARIANA ISLANDS=NORTHERN MARIANA ISLANDS, NORWAY=NORWAY, OCEANS=OCEANS, OMAN=OMAN, PAKISTAN=PAKISTAN, PALMYRA ATOLL=PALMYRA ATOLL, PANAMA=PANAMA, PAPUA NEW GUINEA=PAPUA NEW GUINEA, PARACEL ISLANDS=PARACEL ISLANDS, PARAGUAY=PARAGUAY, PERU=PERU, PHILIPPINES=PHILIPPINES, PITCAIRN ISLANDS=PITCAIRN ISLANDS, POLAND=POLAND, PORTUGAL=PORTUGAL, PUERTO RICO=PUERTO RICO, QATAR=QATAR, REUNION=REUNION, ROMANIA=ROMANIA, RUSSIA=RUSSIA, RWANDA=RWANDA, SAN MARINO=SAN MARINO, SAO TOME AND PRINCIPE=SAO TOME AND PRINCIPE, SAUDI ARABIA=SAUDI ARABIA, SENEGAL=SENEGAL, SERBIA=SERBIA, SEYCHELLES=SEYCHELLES, SIERRA LEONE=SIERRA LEONE, SINGAPORE=SINGAPORE, SLOVAKIA=SLOVAKIA, SLOVENIA=SLOVENIA, SOLOMON ISLANDS=SOLOMON ISLANDS, SOMALIA=SOMALIA, SOUTH AFRICA=SOUTH AFRICA, SOVIET UNION=SOVIET UNION, SPAIN=SPAIN, SPRATLY ISLANDS=SPRATLY ISLANDS, SRI LANKA=SRI LANKA, ST. HELENA=ST. HELENA, ST. KITTS AND NEVIS=ST. KITTS AND NEVIS, ST. LUCIA=ST. LUCIA, ST. PIERRE AND MIQUELON=ST. PIERRE AND MIQUELON, ST. VINCENT AND THE GRENADINES=ST. VINCENT AND THE GRENADINES, SUDAN=SUDAN, SURINAME=SURINAME, SVALBARD=SVALBARD, SWAZILAND=SWAZILAND, SWEDEN=SWEDEN, SWITZERLAND=SWITZERLAND, SYRIA=SYRIA, TAIWAN=TAIWAN, TAJIKISTAN=TAJIKISTAN, TANZANIA, UNITED REPUBLIC OF=TANZANIA, UNITED REPUBLIC OF, THAILAND=THAILAND, TOGO=TOGO, TOKELAU=TOKELAU, TONGA=TONGA, TRINIDAD AND TOBAGO=TRINIDAD AND TOBAGO, TROMELIN ISLAND=TROMELIN ISLAND, TUNISIA=TUNISIA, TURKEY=TURKEY, TURKMENISTAN=TURKMENISTAN, TURKS AND CAICOS ISLANDS=TURKS AND CAICOS ISLANDS, TUVALU=TUVALU, UGANDA=UGANDA, UKRAINE=UKRAINE, UNDERSEA FEATURES=UNDERSEA FEATURES, UNITED ARAB EMIRATES=UNITED ARAB EMIRATES, UNITED KINGDOM=UNITED KINGDOM, UNITED STATES=UNITED STATES, URUGUAY=URUGUAY, UZBEKISTAN=UZBEKISTAN, VANUATU=VANUATU, VATICAN CITY=VATICAN CITY, VENEZUELA=VENEZUELA, VIETNAM=VIETNAM, VIRGIN ISLANDS=VIRGIN ISLANDS, WAKE ISLAND=WAKE ISLAND, WALLIS AND FUTUNA=WALLIS AND FUTUNA, WEST BANK=WEST BANK, WESTERN SAHARA=WESTERN SAHARA, WESTERN SAMOA=WESTERN SAMOA, YEMEN=YEMEN, YUGOSLAVIA=YUGOSLAVIA, ZAIRE=ZAIRE, ZAMBIA=ZAMBIA, ZIMBABWE=ZIMBABWE
+      options:
+        - ALBANIA=ALBANIA
+        - ALGERIA=ALGERIA
+        - AMERICAN SAMOA=AMERICAN SAMOA
+        - ANDORRA=ANDORRA
+        - ANGOLA=ANGOLA
+        - ANGUILLA=ANGUILLA
+        - ANTARCTICA=ANTARCTICA
+        - ANTIGUA AND BARBUDA=ANTIGUA AND BARBUDA
+        - ARGENTINA=ARGENTINA
+        - ARMENIA=ARMENIA
+        - ARUBA=ARUBA
+        - ASHMORE AND CARTIER ISLANDS=ASHMORE AND CARTIER ISLANDS
+        - AUSTRALIA=AUSTRALIA
+        - AUSTRIA=AUSTRIA
+        - AZERBAIJAN=AZERBAIJAN
+        - BAHAMAS=BAHAMAS
+        - BAHRAIN=BAHRAIN
+        - BAKER ISLAND=BAKER ISLAND
+        - BANGLADESH=BANGLADESH
+        - BARBADOS=BARBADOS
+        - BASSA DE INDIA=BASSA DE INDIA
+        - BELARUS=BELARUS
+        - BELGIUM=BELGIUM
+        - BELIZE=BELIZE
+        - BENIN=BENIN
+        - BERMUDA=BERMUDA
+        - BHUTAN=BHUTAN
+        - BOLIVIA=BOLIVIA
+        - BOSNIA AND HERZEGOVINA=BOSNIA AND HERZEGOVINA
+        - BOTSWANA=BOTSWANA
+        - BOUVET ISLAND=BOUVET ISLAND
+        - BRAZIL=BRAZIL
+        - BRITISH INDIAN OCEAN TERRITORY=BRITISH INDIAN OCEAN TERRITORY
+        - BRITISH VIRGIN ISLANDS=BRITISH VIRGIN ISLANDS
+        - BRUNEI=BRUNEI
+        - BULGARIA=BULGARIA
+        - BURKINA FASO=BURKINA FASO
+        - BURMA=BURMA
+        - BURUNDI=BURUNDI
+        - CAMBODIA=CAMBODIA
+        - CAMEROON=CAMEROON
+        - CANADA=CANADA
+        - CAPE VERDE=CAPE VERDE
+        - CAYMAN ISLANDS=CAYMAN ISLANDS
+        - CENTRAL AFRICAN REPUBLIC=CENTRAL AFRICAN REPUBLIC
+        - CHAD=CHAD
+        - CHILE=CHILE
+        - CHINA=CHINA
+        - CHRISTMAS ISLAND=CHRISTMAS ISLAND
+        - CLIPPERTON ISLAND=CLIPPERTON ISLAND
+        - COCOS (KEELING) ISLANDS=COCOS (KEELING) ISLANDS
+        - COLOMBIA=COLOMBIA
+        - COMOROS=COMOROS
+        - CONGO=CONGO
+        - COOK ISLANDS=COOK ISLANDS
+        - CORAL SEA ISLANDS=CORAL SEA ISLANDS
+        - COSTA RICA=COSTA RICA
+        - COTE D'IVOIRE=COTE D'IVOIRE
+        - CROATIA=CROATIA
+        - CUBA=CUBA
+        - CYPRUS=CYPRUS
+        - CZECH REPUBLIC=CZECH REPUBLIC
+        - DENMARK=DENMARK
+        - DJIBOUTI=DJIBOUTI
+        - DOMINICA=DOMINICA
+        - DOMINICAN REPUBLIC=DOMINICAN REPUBLIC
+        - ECUADOR=ECUADOR
+        - EGYPT=EGYPT
+        - EL SALVADOR=EL SALVADOR
+        - EQUATORIAL GUINEA=EQUATORIAL GUINEA
+        - ERITREA=ERITREA
+        - ESTONIA=ESTONIA
+        - ETHIOPIA=ETHIOPIA
+        - EUROPA ISLAND=EUROPA ISLAND
+        - FALKLAND ISLANDS=FALKLAND ISLANDS
+        - FAROE ISLANDS=FAROE ISLANDS
+        - FIJI=FIJI
+        - FINLAND=FINLAND
+        - FRANCE=FRANCE
+        - FRENCH GUIANA=FRENCH GUIANA
+        - FRENCH POLYNESIA=FRENCH POLYNESIA
+        - FRENCH SOUTHERN AND ANTARCTIC LANDS=FRENCH SOUTHERN AND ANTARCTIC LANDS
+        - GABON=GABON
+        - GAMBIA, THE=GAMBIA, THE
+        - GAZA STRIP=GAZA STRIP
+        - GEORGIA=GEORGIA
+        - GERMANY=GERMANY
+        - GHANA=GHANA
+        - GIBRALTAR=GIBRALTAR
+        - GLORIOSO ISLANDS=GLORIOSO ISLANDS
+        - GREECE=GREECE
+        - GREENLAND=GREENLAND
+        - GRENADA=GRENADA
+        - GUADELOUPE=GUADELOUPE
+        - GUAM=GUAM
+        - GUATEMALA=GUATEMALA
+        - GUERNSEY=GUERNSEY
+        - GUINEA=GUINEA
+        - GUINEA-BISSAU=GUINEA-BISSAU
+        - GUYANA=GUYANA
+        - HAITI=HAITI
+        - HEARD ISLAND AND MCDONALD ISLANDS=HEARD ISLAND AND MCDONALD ISLANDS
+        - HONDURAS=HONDURAS
+        - HONG KONG=HONG KONG
+        - HOWLAND ISLAND=HOWLAND ISLAND
+        - HUNGARY=HUNGARY
+        - ICELAND=ICELAND
+        - INDIA=INDIA
+        - INDONESIA=INDONESIA
+        - IRAN=IRAN
+        - IRAQ=IRAQ
+        - IRELAND=IRELAND
+        - ISRAEL=ISRAEL
+        - ITALY=ITALY
+        - JAMAICA=JAMAICA
+        - JAN MAYEN=JAN MAYEN
+        - JAPAN=JAPAN
+        - JARVIS ISLAND=JARVIS ISLAND
+        - JERSEY=JERSEY
+        - JOHNSTON ATOLL=JOHNSTON ATOLL
+        - JORDAN=JORDAN
+        - JUAN DE NOVA ISLAND=JUAN DE NOVA ISLAND
+        - KAZAKHSTAN=KAZAKHSTAN
+        - KENYA=KENYA
+        - KINGMAN REEF=KINGMAN REEF
+        - KIRIBATI=KIRIBATI
+        - KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF=KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF
+        - KOREA, REPUBLIC OF=KOREA, REPUBLIC OF
+        - KUWAIT=KUWAIT
+        - KYRGYZSTAN=KYRGYZSTAN
+        - LAOS=LAOS
+        - LATVIA=LATVIA
+        - LEBANON=LEBANON
+        - LESOTHO=LESOTHO
+        - LIBERIA=LIBERIA
+        - LIBYA=LIBYA
+        - LIECHTENSTEIN=LIECHTENSTEIN
+        - LITHUANIA=LITHUANIA
+        - LUXEMBOURG=LUXEMBOURG
+        - MACAU=MACAU
+        - MACEDONIA, FORMER REPUBLIC OF=MACEDONIA, FORMER REPUBLIC OF
+        - MADAGASCAR=MADAGASCAR
+        - MALAWI=MALAWI
+        - MALAYSIA=MALAYSIA
+        - MALDIVES=MALDIVES
+        - MALI=MALI
+        - MALTA=MALTA
+        - MAN, ISLE OF=MAN, ISLE OF
+        - MARSHALL ISLANDS=MARSHALL ISLANDS
+        - MARTINIQUE=MARTINIQUE
+        - MAURITANIA=MAURITANIA
+        - MAURITIUS=MAURITIUS
+        - MAYOTTE=MAYOTTE
+        - MEXICO=MEXICO
+        - MICRONESIA=MICRONESIA
+        - MIDWAY ISLANDS=MIDWAY ISLANDS
+        - MOLDOVA=MOLDOVA
+        - MONACO=MONACO
+        - MONGOLIA=MONGOLIA
+        - MONTENEGRO=MONTENEGRO
+        - MONTSERRAT=MONTSERRAT
+        - MOROCCO=MOROCCO
+        - MOZAMBIQUE=MOZAMBIQUE
+        - NAMIBIA=NAMIBIA
+        - NAURU=NAURU
+        - NAVASSA ISLAND=NAVASSA ISLAND
+        - NEPAL=NEPAL
+        - NETHERLANDS=NETHERLANDS
+        - NETHERLANDS ANTILLES=NETHERLANDS ANTILLES
+        - NEW CALEDONIA=NEW CALEDONIA
+        - NEW ZEALAND=NEW ZEALAND
+        - NICARAGUA=NICARAGUA
+        - NIGER=NIGER
+        - NIGERIA=NIGERIA
+        - NIUE=NIUE
+        - NO MANS LAND=NO MANS LAND
+        - NORFOLK ISLAND=NORFOLK ISLAND
+        - NORTHERN MARIANA ISLANDS=NORTHERN MARIANA ISLANDS
+        - NORWAY=NORWAY
+        - OCEANS=OCEANS
+        - OMAN=OMAN
+        - PAKISTAN=PAKISTAN
+        - PALMYRA ATOLL=PALMYRA ATOLL
+        - PANAMA=PANAMA
+        - PAPUA NEW GUINEA=PAPUA NEW GUINEA
+        - PARACEL ISLANDS=PARACEL ISLANDS
+        - PARAGUAY=PARAGUAY
+        - PERU=PERU
+        - PHILIPPINES=PHILIPPINES
+        - PITCAIRN ISLANDS=PITCAIRN ISLANDS
+        - POLAND=POLAND
+        - PORTUGAL=PORTUGAL
+        - PUERTO RICO=PUERTO RICO
+        - QATAR=QATAR
+        - REUNION=REUNION
+        - ROMANIA=ROMANIA
+        - RUSSIA=RUSSIA
+        - RWANDA=RWANDA
+        - SAN MARINO=SAN MARINO
+        - SAO TOME AND PRINCIPE=SAO TOME AND PRINCIPE
+        - SAUDI ARABIA=SAUDI ARABIA
+        - SENEGAL=SENEGAL
+        - SERBIA=SERBIA
+        - SEYCHELLES=SEYCHELLES
+        - SIERRA LEONE=SIERRA LEONE
+        - SINGAPORE=SINGAPORE
+        - SLOVAKIA=SLOVAKIA
+        - SLOVENIA=SLOVENIA
+        - SOLOMON ISLANDS=SOLOMON ISLANDS
+        - SOMALIA=SOMALIA
+        - SOUTH AFRICA=SOUTH AFRICA
+        - SOVIET UNION=SOVIET UNION
+        - SPAIN=SPAIN
+        - SPRATLY ISLANDS=SPRATLY ISLANDS
+        - SRI LANKA=SRI LANKA
+        - ST. HELENA=ST. HELENA
+        - ST. KITTS AND NEVIS=ST. KITTS AND NEVIS
+        - ST. LUCIA=ST. LUCIA
+        - ST. PIERRE AND MIQUELON=ST. PIERRE AND MIQUELON
+        - ST. VINCENT AND THE GRENADINES=ST. VINCENT AND THE GRENADINES
+        - SUDAN=SUDAN
+        - SURINAME=SURINAME
+        - SVALBARD=SVALBARD
+        - SWAZILAND=SWAZILAND
+        - SWEDEN=SWEDEN
+        - SWITZERLAND=SWITZERLAND
+        - SYRIA=SYRIA
+        - TAIWAN=TAIWAN
+        - TAJIKISTAN=TAJIKISTAN
+        - TANZANIA, UNITED REPUBLIC OF=TANZANIA, UNITED REPUBLIC OF
+        - THAILAND=THAILAND
+        - TOGO=TOGO
+        - TOKELAU=TOKELAU
+        - TONGA=TONGA
+        - TRINIDAD AND TOBAGO=TRINIDAD AND TOBAGO
+        - TROMELIN ISLAND=TROMELIN ISLAND
+        - TUNISIA=TUNISIA
+        - TURKEY=TURKEY
+        - TURKMENISTAN=TURKMENISTAN
+        - TURKS AND CAICOS ISLANDS=TURKS AND CAICOS ISLANDS
+        - TUVALU=TUVALU
+        - UGANDA=UGANDA
+        - UKRAINE=UKRAINE
+        - UNDERSEA FEATURES=UNDERSEA FEATURES
+        - UNITED ARAB EMIRATES=UNITED ARAB EMIRATES
+        - UNITED KINGDOM=UNITED KINGDOM
+        - UNITED STATES=UNITED STATES
+        - URUGUAY=URUGUAY
+        - UZBEKISTAN=UZBEKISTAN
+        - VANUATU=VANUATU
+        - VATICAN CITY=VATICAN CITY
+        - VENEZUELA=VENEZUELA
+        - VIETNAM=VIETNAM
+        - VIRGIN ISLANDS=VIRGIN ISLANDS
+        - WAKE ISLAND=WAKE ISLAND
+        - WALLIS AND FUTUNA=WALLIS AND FUTUNA
+        - WEST BANK=WEST BANK
+        - WESTERN SAHARA=WESTERN SAHARA
+        - WESTERN SAMOA=WESTERN SAMOA
+        - YEMEN=YEMEN
+        - YUGOSLAVIA=YUGOSLAVIA
+        - ZAIRE=ZAIRE
+        - ZAMBIA=ZAMBIA
+        - ZIMBABWE=ZIMBABWE
   · User Name:  [text]
       selector: #email
       from: nearby-text  name=email  id=email
@@ -856,11 +1230,18 @@ exports[`the FormSpec of every captured form > form-page 1`] = `
   · Pizza Size  [radio]
       selector: body:nth-of-type(1) > form:nth-of-type(1) [name="size"]
       from: label-wrapping  name=size  id=-
-      options: Small=small, Medium=medium, Large=large
+      options:
+        - Small=small
+        - Medium=medium
+        - Large=large
   · Pizza Toppings  [checkbox]
       selector: body:nth-of-type(1) > form:nth-of-type(1) [name="topping"]
       from: label-wrapping  name=topping  id=-
-      options: Bacon=bacon, Extra Cheese=cheese, Onion=onion, Mushroom=mushroom
+      options:
+        - Bacon=bacon
+        - Extra Cheese=cheese
+        - Onion=onion
+        - Mushroom=mushroom
   · Preferred delivery time:  [time]
       selector: body:nth-of-type(1) > form:nth-of-type(1) [name="delivery"]
       from: label-wrapping  name=delivery  id=-
@@ -876,149 +1257,26 @@ exports[`the FormSpec of every captured form > form-select-minimal 1`] = `
   · Dropdown List  [select]
       selector: #dropdown
       from: nearby-text  name=-  id=dropdown
-      options: Please select an option=*, Option 1=1, Option 2=2"
+      options:
+        - Please select an option=*
+        - Option 1=1
+        - Option 2=2"
 `;
 
-exports[`the FormSpec of every captured form > form-shadow-dom 1`] = `
-"FORM #paymentForm
+exports[`the FormSpec of every captured form > form-signup 1`] = `
+"FORM #root > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1)
   GET → (posts to itself)
-  submit: #paymentForm > button:nth-of-type(1)
-  · John Doe  [text]  required
-      selector: #cardName
-      from: placeholder  name=-  id=cardName
-      placeholder: John Doe
-  · 1234 5678 9012 3456  [text]  required sensitive
-      selector: #cardNumber
-      from: placeholder  name=-  id=cardNumber
-      placeholder: 1234 5678 9012 3456
-      maxLength=19
-  · MM/YY  [text]  required
-      selector: #expiry
-      from: placeholder  name=-  id=expiry
-      placeholder: MM/YY
-      maxLength=5
-  · 123  [text]  required sensitive
-      selector: #cvv
-      from: placeholder  name=-  id=cvv
-      placeholder: 123
-      maxLength=4
-
-FORM (controls outside any <form>)
-  GET → (posts to itself)
-  submit: (none found)
-  · Enter email  [email]  readonly
-      selector: #shub70
-      from: placeholder  name=email  id=shub70
-      autocomplete: anyrandomstring
-      placeholder: Enter email
-  · Enter Password  [password]  sensitive
-      selector: #pass
-      from: placeholder  name=Password  id=pass
-      autocomplete: off_anyrandomstring
-      placeholder: Enter Password
-  · Enter your company  [text]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
-      from: placeholder  name=company  id=-
-      placeholder: Enter your company
-  · Enter your mobile number  [number]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
-      from: placeholder  name=mobile number  id=-
-      placeholder: Enter your mobile number
-  · Country  [text]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > label:nth-of-type(1) > input:nth-of-type(1)
-      from: label-wrapping  name=-  id=-
-  · Enter your company  [text]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
-      from: placeholder  name=company  id=-
-      placeholder: Enter your company
-  · Enter your mobile number  [number]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
-      from: placeholder  name=mobile number  id=-
-      placeholder: Enter your mobile number
-  · Enter your company  [text]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
-      from: placeholder  name=company  id=-
-      placeholder: Enter your company
-  · Enter your mobile number  [number]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
-      from: placeholder  name=mobile number  id=-
-      placeholder: Enter your mobile number
-  · Enter your company  [text]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
-      from: placeholder  name=company  id=-
-      placeholder: Enter your company
-  · Enter your mobile number  [number]
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
-      from: placeholder  name=mobile number  id=-
-      placeholder: Enter your mobile number
-  · First Crush  [text]
-      selector: #inp_val
-      from: placeholder  name=-  id=inp_val
-      placeholder: First Crush
-  · (no label)  [checkbox]
-      selector: #ohrmList_chkSelectAll
-      from: nothing  name=chkSelectAll  id=ohrmList_chkSelectAll
-  · (no label)  [checkbox]
-      selector: [name="chkSelectRow[]"]
-      from: nothing  name=chkSelectRow[]  id=ohrmList_chkSelectRecord_25
-      options: 25=25, 16=16, 21=21, 2=2, 14=14, 15=15
-  · First Enter name  [text]  disabled
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)
-      from: placeholder  name=test  id=-
-      placeholder: First Enter name
-  · Enter Last name  [text]  disabled
-      selector: #content > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(2)
-      from: placeholder  name=test  id=-
-      placeholder: Enter Last name
-  · Choose a car:  [select]
-      selector: #cars
-      from: label-for  name=cars  id=cars
-      options: Volvo=volvo, Saab=saab, Opel=opel, Audi=audi
-  · করোনা সংক্রমণ বাড়াচ্ছে 也支持中文  [text]
-      selector: #datepicker
-      from: nearby-text  name=-  id=datepicker
-      autocomplete: off
-  · করোনা সংক্রমণ বাড়াচ্ছে 也支持中文  [date]
-      selector: [name="the_date"]
-      from: nearby-text  name=the_date  id=-
-  · Click to Download PNG File  [file]
-      selector: #myFile
-      from: nearby-text  name=filename  id=myFile
-  · entries per page  [select]
-      selector: #dt-length-0
-      from: label-for  name=-  id=dt-length-0
-      options: 10=10, 25=25, 50=50, 100=100
-  · Search:  [search]
-      selector: #dt-search-0
-      from: label-for  name=-  id=dt-search-0
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(2) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(3) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(4) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(5) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(6) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(7) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(8) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(9) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-
-  · (no label)  [checkbox]
-      selector: #tablepress-1 > tbody:nth-of-type(1) > tr:nth-of-type(10) > td:nth-of-type(1) > input:nth-of-type(1)
-      from: nothing  name=-  id=-"
+  submit: #register-submit
+  · Email Address  [email]
+      selector: #register-email
+      from: label-for  name=-  id=register-email
+      placeholder: Enter your email
+  · Password  [password]  sensitive
+      selector: #register-password
+      from: label-for  name=-  id=register-password
+      placeholder: Create a password
+  · Confirm Password  [password]  sensitive
+      selector: #register-confirm-password
+      from: label-for  name=-  id=register-confirm-password
+      placeholder: Confirm your password"
 `;
