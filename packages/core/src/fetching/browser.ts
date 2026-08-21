@@ -17,6 +17,7 @@ import { USER_AGENT } from './user-agent.js';
 import type { FetchOptions, FetchStrategy } from './strategy.js';
 import type { HtmlDocument } from '../core/types.js';
 import { inspectFormsOnPage, type BrowserFormInspection } from '../forms/live-inspector.js';
+import { waitForDomQuiet } from '../forms/dom-readiness.js';
 
 /**
  * Phase 2 — the same page, fetched by a real browser.
@@ -158,9 +159,15 @@ export class BrowserStrategy implements FetchStrategy {
     url: string,
     options: BrowserFetchOptions = {},
   ): Promise<BrowserFormInspection> {
-    return this.#visit(url, options, true, async (page, document) => ({
+    const timeoutMs = options.timeoutMs ?? this.defaults.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    // Leave enough time for the inspector to return its partial result and
+    // budget warning before the request's hard deadline closes the context.
+    const inspectionReserveMs = Math.min(500, Math.max(100, timeoutMs / 4));
+    return this.#visit(url, options, true, async (page, document, deadline) => ({
       document,
-      spec: await inspectFormsOnPage(page, document),
+      spec: await inspectFormsOnPage(page, document, {
+        deadline: deadline - inspectionReserveMs,
+      }),
     }));
   }
 
@@ -168,7 +175,7 @@ export class BrowserStrategy implements FetchStrategy {
     url: string,
     options: BrowserFetchOptions,
     openClosedShadowRoots: boolean,
-    read: (page: Page, document: HtmlDocument) => Result | Promise<Result>,
+    read: (page: Page, document: HtmlDocument, deadline: number) => Result | Promise<Result>,
   ): Promise<Result> {
     const {
       timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -179,48 +186,71 @@ export class BrowserStrategy implements FetchStrategy {
       allowPrivate,
       signal,
     } = { ...this.defaults, ...options };
+    const deadline = Date.now() + timeoutMs;
 
     // Same guard as the HTTP path, and the browser needs it more: Chromium
     // follows its own redirects, so the check has to live on each navigation
     // rather than only on the url we were handed.
     const guard = allowPrivate === undefined ? {} : { allowPrivate };
-    await assertFetchable(url, guard);
+    await beforeDeadline(assertFetchable(url, guard), deadline, url, timeoutMs);
 
-    const browser = await this.#launch();
+    const browser = await beforeDeadline(this.#launch(), deadline, url, timeoutMs);
 
     // A fresh context per fetch: no cookies or storage leak between pages.
     // Cheap — unlike a browser, a context is just an isolated profile.
-    const context: BrowserContext = await browser.newContext({ userAgent: USER_AGENT });
-    const page = await context.newPage();
-
-    if (openClosedShadowRoots) {
-      // Closed roots deliberately disappear from every normal DOM interface.
-      // Install before site scripts run, and mark each affected host so the
-      // result can explain that replaying the locator needs the same hook.
-      await page.addInitScript(OPEN_CLOSED_SHADOW_ROOTS_SCRIPT);
-    }
+    const contextPromise = browser.newContext({ userAgent: USER_AGENT });
+    const context: BrowserContext = await beforeDeadline(
+      contextPromise,
+      deadline,
+      url,
+      timeoutMs,
+    ).catch((error) => {
+      void contextPromise.then((lateContext) => lateContext.close()).catch(() => {});
+      throw error;
+    });
+    const page = await beforeDeadline(context.newPage(), deadline, url, timeoutMs).catch(
+      (error) => {
+        void context.close().catch(() => {});
+        throw error;
+      },
+    );
+    let deadlineExpired = false;
+    const deadlineTimer = setTimeout(
+      () => {
+        deadlineExpired = true;
+        void context.close().catch(() => {});
+      },
+      Math.max(1, deadline - Date.now()),
+    );
 
     // Every document navigation is re-checked, which is what catches a public
     // page redirecting to 127.0.0.1 inside the browser where we cannot see it.
     let blocked: Error | null = null;
-    await context.route('**/*', async (route, request) => {
-      if (!request.isNavigationRequest()) return route.continue();
-      try {
-        await assertFetchable(request.url(), guard);
-        return route.continue();
-      } catch (error) {
-        blocked = error as Error;
-        return route.abort('blockedbyclient');
-      }
-    });
-
     // Closing the context is how a navigation gets cancelled: Playwright has no
     // abort on goto(), so the page has to go away underneath it.
     const abort = () => void context.close().catch(() => {});
     signal?.addEventListener('abort', abort, { once: true });
 
     try {
-      const response = await navigate(page, url, waitUntil, timeoutMs);
+      if (openClosedShadowRoots) {
+        // Closed roots deliberately disappear from every normal DOM interface.
+        // Install before site scripts run, and mark each affected host so the
+        // result can explain that replaying the locator needs the same hook.
+        await context.addInitScript(OPEN_CLOSED_SHADOW_ROOTS_SCRIPT);
+      }
+
+      await context.route('**/*', async (route, request) => {
+        if (!request.isNavigationRequest()) return route.continue();
+        try {
+          await assertFetchable(request.url(), guard);
+          return route.continue();
+        } catch (error) {
+          blocked = error as Error;
+          return route.abort('blockedbyclient');
+        }
+      });
+
+      const response = await navigate(page, url, waitUntil, remaining(deadline, url, timeoutMs));
       if (!response) throw new NetworkError(url, new Error('navigation produced no response'));
 
       const status = response.status();
@@ -231,11 +261,15 @@ export class BrowserStrategy implements FetchStrategy {
         throw new UnsupportedContentTypeError(url, contentType);
       }
 
-      if (dismissConsent) await dismissConsentBanner(page);
-      if (scrollPasses > 0) await scrollThrough(page, scrollPasses);
+      if (dismissConsent) await dismissConsentBanner(page, deadline);
+      if (scrollPasses > 0) await scrollThrough(page, scrollPasses, deadline);
       // Last, so it acts on the whole page: after the consent overlay is gone,
       // and after scrolling has appended whatever it is going to append.
-      if (expand) await expandDisclosures(page);
+      if (expand) {
+        await expandDisclosures(page, {
+          budgetMs: Math.max(1, Math.min(5_000, deadline - Date.now())),
+        });
+      }
 
       // After expanding, so anything we just opened counts as visible.
       await markInvisible(page);
@@ -251,13 +285,17 @@ export class BrowserStrategy implements FetchStrategy {
         fetchedAt: new Date(),
       };
 
-      return await read(page, document);
+      const result = await read(page, document, deadline);
+      if (Date.now() >= deadline) throw new FetchTimeoutError(url, timeoutMs);
+      return result;
     } catch (error) {
       // A navigation we aborted surfaces as a generic net::ERR — report the
       // reason we aborted it, not the symptom.
       if (blocked) throw blocked;
+      if (deadlineExpired) throw new FetchTimeoutError(url, timeoutMs);
       throw translate(error, url, timeoutMs);
     } finally {
+      clearTimeout(deadlineTimer);
       signal?.removeEventListener('abort', abort);
       await context.close().catch(() => {});
     }
@@ -291,10 +329,10 @@ export class BrowserStrategy implements FetchStrategy {
  * the fallback only has to wait for `domcontentloaded`, which has usually
  * already happened by the time it runs.
  */
-const FIRST_ATTEMPT_SHARE = 0.6;
+const READINESS_SHARE = 0.6;
 
 /**
- * Navigate, with a fallback for pages that never go quiet.
+ * Navigate once, then wait separately for the requested readiness signal.
  *
  * `networkidle` is the only wait that reliably sees a rendered SPA, but a page
  * that polls — a chat widget, an analytics heartbeat, a live ticker — never
@@ -302,12 +340,10 @@ const FIRST_ATTEMPT_SHARE = 0.6;
  * to return nothing. On that timeout we settle for `domcontentloaded` and take
  * whatever has rendered, which is usually the whole page.
  *
- * Both attempts share one budget, and that is the whole subtlety here. Giving
- * each the full `timeoutMs` — which is what this did originally — means a
- * 30-second timeout can spend 60 seconds, and a caller who budgeted for the
- * number they passed gets killed by whatever is enforcing it one layer up. On
- * a host with a 60s ceiling that arrived as a 60.3s request: not a hung page,
- * just arithmetic nobody had done.
+ * Retrying `page.goto()` reloads the site and can double both latency and side
+ * effects. DOMContentLoaded obtains the response once; readiness is then a
+ * bounded wait on that same document. Polling pages fall back to DOM mutation
+ * quietness, which is the signal form extraction actually needs.
  *
  * A timeout with no response at all is still a timeout, and still throws.
  */
@@ -318,23 +354,23 @@ async function navigate(
   timeoutMs: number,
 ): Promise<Response_ | null> {
   const deadline = Date.now() + timeoutMs;
+  const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+  if (waitUntil === 'domcontentloaded') return response;
 
   try {
-    return await page.goto(url, {
-      waitUntil,
-      timeout: Math.round(timeoutMs * FIRST_ATTEMPT_SHARE),
+    await page.waitForLoadState(waitUntil, {
+      timeout: Math.max(
+        1,
+        Math.min(deadline - Date.now(), Math.round(timeoutMs * READINESS_SHARE)),
+      ),
     });
   } catch (error) {
     if (waitUntil !== 'networkidle' || !(error instanceof Error) || error.name !== 'TimeoutError') {
       throw error;
     }
-
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) throw error;
-
-    // Already navigated; this resolves against the load that did happen.
-    return page.goto(url, { waitUntil: 'domcontentloaded', timeout: remaining });
+    await waitForDomQuiet(page, Math.max(1, Math.min(2_000, deadline - Date.now())));
   }
+  return response;
 }
 
 /**
@@ -343,13 +379,15 @@ async function navigate(
  * `isVisible()` answers from the current DOM without waiting, so a page with no
  * banner costs six near-instant checks rather than six timeouts.
  */
-async function dismissConsentBanner(page: Page): Promise<void> {
+async function dismissConsentBanner(page: Page, deadline: number): Promise<void> {
   for (const selector of CONSENT_SELECTORS) {
     try {
       const button = page.locator(selector).first();
       if (!(await button.isVisible())) continue;
 
-      await button.click({ timeout: CONSENT_CLICK_TIMEOUT_MS });
+      await button.click({
+        timeout: Math.max(1, Math.min(CONSENT_CLICK_TIMEOUT_MS, deadline - Date.now())),
+      });
       // One banner, one click. Anything still overlaying is not a cookie notice.
       return;
     } catch {
@@ -417,10 +455,11 @@ async function markInvisible(page: Page): Promise<void> {
  * Stops early when the height stops growing — a finite page is done, and there
  * is no point paying for the remaining passes.
  */
-async function scrollThrough(page: Page, passes: number): Promise<void> {
+async function scrollThrough(page: Page, passes: number, deadline: number): Promise<void> {
   let previousHeight = 0;
 
   for (let pass = 0; pass < passes; pass += 1) {
+    if (Date.now() >= deadline) return;
     const height = await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight);
       return document.body.scrollHeight;
@@ -429,7 +468,33 @@ async function scrollThrough(page: Page, passes: number): Promise<void> {
     if (height === previousHeight) return;
     previousHeight = height;
 
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(Math.max(1, Math.min(500, deadline - Date.now())));
+  }
+}
+
+function remaining(deadline: number, url: string, timeoutMs: number): number {
+  const value = deadline - Date.now();
+  if (value <= 0) throw new FetchTimeoutError(url, timeoutMs);
+  return value;
+}
+
+async function beforeDeadline<Result>(
+  work: Promise<Result>,
+  deadline: number,
+  url: string,
+  timeoutMs: number,
+): Promise<Result> {
+  const timeout = remaining(deadline, url, timeoutMs);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new FetchTimeoutError(url, timeoutMs)), timeout);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

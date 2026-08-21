@@ -40,6 +40,36 @@ describe('what counts as a field', () => {
   it.each(['submit', 'button', 'reset', 'image'])('does not treat type=%s as a field', (type) => {
     expect(fieldsOf(`<input type="${type}"><input name="real">`)).toHaveLength(1);
   });
+
+  it('keeps a custom choice widget current value separate from its name', () => {
+    const field = firstField('<div role="combobox" aria-expanded="false"><span>Ocean</span></div>');
+
+    expect(field).toMatchObject({
+      label: null,
+      currentValues: ['Ocean'],
+      interaction: { kind: 'choose', mode: 'single', optionsStatus: 'dynamic' },
+    });
+  });
+
+  it('does not use a combobox input’s displayed selection as its label', () => {
+    const field = firstField(
+      '<div><span>Ocean</span><input role="combobox" aria-expanded="false"></div>',
+    );
+
+    expect(field.label).toBeNull();
+    expect(field.interaction.kind).toBe('choose');
+  });
+
+  it('counts a standalone ARIA listbox but not a combobox-owned popup', () => {
+    expect(
+      fieldsOf('<div role="listbox" tabindex="0"><div role="option">A</div></div>'),
+    ).toHaveLength(1);
+    expect(
+      fieldsOf(
+        '<input role="combobox" aria-controls="choices"><div id="choices" role="listbox"><div role="option">A</div></div>',
+      ),
+    ).toHaveLength(1);
+  });
 });
 
 describe('grouping', () => {
@@ -158,6 +188,13 @@ describe('selectors', () => {
     const field = firstField('<div id="wrap"><span></span><input></div>');
 
     expect(field.selector).toBe('#wrap > input:nth-of-type(1)');
+  });
+
+  it('builds fragment selectors relative to the fragment root', () => {
+    const doc = htmlDocument('<section><span>Anonymous</span><input></section>');
+    const field = extractForms(doc, { selectorRoot: 'fragment' }).forms[0]?.fields[0];
+
+    expect(field?.selector).toBe('section:nth-of-type(1) > input:nth-of-type(1)');
   });
 
   // Generated ids are unique today and different tomorrow, which is the one

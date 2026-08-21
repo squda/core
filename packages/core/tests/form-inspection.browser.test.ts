@@ -44,13 +44,96 @@ describe('GET /form-spec against a live browser document', () => {
     });
   });
 
+  it('publishes positional selectors relative to a shadow root, not its synthetic wrapper', async () => {
+    const spec = await inspect('/live-forms');
+    const field = spec.forms
+      .flatMap((form) => form.fields)
+      .find((candidate) => candidate.label === 'Anonymous shadow field');
+
+    expect(field?.locator?.selector).toBe('section:nth-of-type(1) > input:nth-of-type(1)');
+    expect(field?.locator?.selector).not.toContain('body');
+    expect(field?.locator?.verification).toBe('snapshot-only');
+  });
+
+  it('does not certify a field through an anonymous positional scope hop', async () => {
+    const spec = await inspect('/live-forms');
+    const field = spec.forms
+      .flatMap((form) => form.fields)
+      .find((candidate) => candidate.label === 'Anonymous host field');
+
+    expect(field?.locator?.scopes[0]?.candidates).toEqual([
+      expect.objectContaining({ kind: 'css', source: 'path' }),
+    ]);
+    expect(field?.locator?.verification).toBe('snapshot-only');
+  });
+
+  it('reads a custom choice widget without confusing its selected value for its name', async () => {
+    const spec = await inspect('/choice-widgets');
+    const field = spec.forms.flatMap((form) => form.fields)[0];
+
+    expect(field).toMatchObject({
+      label: 'Favourite colour',
+      labelSource: 'aria-labelledby',
+      interaction: { kind: 'choose', mode: 'single', optionsStatus: 'complete' },
+      currentValues: ['Ocean'],
+    });
+    expect(field?.options).toEqual([
+      { value: 'ocean', label: 'Ocean', selected: true },
+      { value: 'red', label: 'Red', selected: false },
+      { value: 'blue', label: 'Blue', selected: false },
+    ]);
+  });
+
+  it('reads an always-open listbox without clicking or pressing keys on it', async () => {
+    const spec = await inspect('/choice-widgets');
+    const field = spec.forms
+      .flatMap((form) => form.fields)
+      .find((candidate) => candidate.label === 'Size');
+
+    expect(field).toMatchObject({
+      currentValues: ['Small'],
+      interaction: { kind: 'choose', mode: 'single', optionsStatus: 'dynamic' },
+      options: [
+        { value: 'small', label: 'Small', selected: true },
+        { value: 'large', label: 'Large', selected: false },
+      ],
+    });
+  });
+
+  it('rejects an id that changes on a fresh load and verifies a durable fallback', async () => {
+    const spec = await inspect('/generated-id-form');
+    const field = spec.forms.flatMap((form) => form.fields)[0];
+
+    expect(field?.id).toMatch(/^select-input-\d+$/);
+    expect(field?.locator).toMatchObject({
+      verification: 'fresh-load',
+      preferred: { kind: 'role-name', role: 'textbox', name: 'Account type' },
+    });
+    expect(field?.locator?.selector).not.toContain(field?.id ?? 'missing');
+  });
+
+  it('returns usable partial inspection results when optional discovery exhausts the deadline', async () => {
+    const startedAt = Date.now();
+    const result = await pool.inspectForms(`${server.origin}/slow-choice-widgets`, {
+      timeoutMs: 2_000,
+    });
+
+    expect(result.spec.forms.flatMap((form) => form.fields).length).toBeGreaterThan(0);
+    expect(result.spec.warnings).toContainEqual(
+      expect.objectContaining({ code: 'inspection-budget-exhausted' }),
+    );
+    expect(Date.now() - startedAt).toBeLessThan(3_000);
+  });
+
   it('reports a closed shadow root while preserving its fields for inspection', async () => {
     const spec = await inspect('/live-forms');
     const field = spec.forms
       .flatMap((form) => form.fields)
       .find((candidate) => candidate.id === 'private-code');
 
-    expect(field?.locator?.scopes).toEqual([{ kind: 'shadow', selector: '#private-shell' }]);
+    expect(field?.locator?.scopes.map(({ kind, selector }) => ({ kind, selector }))).toEqual([
+      { kind: 'shadow', selector: '#private-shell' },
+    ]);
     expect(spec.warnings).toContainEqual(expect.objectContaining({ code: 'closed-shadow-root' }));
   });
 
@@ -72,7 +155,7 @@ describe('GET /form-spec against a live browser document', () => {
       .flatMap((form) => form.fields)
       .find((field) => field.id === 'nested-code');
 
-    expect(nested?.locator?.scopes).toEqual([
+    expect(nested?.locator?.scopes.map(({ kind, selector }) => ({ kind, selector }))).toEqual([
       { kind: 'shadow', selector: '#account-shell' },
       { kind: 'frame', selector: '#shadow-frame' },
     ]);
@@ -86,7 +169,7 @@ describe('GET /form-spec against a live browser document', () => {
 
     expect(shadowField?.locator?.scopes[0]?.selector).not.toContain('a83cf87f');
     expect(shadowField?.locator?.scopes[0]?.selector).toContain('nth-of-type');
-    expect(frameField?.locator?.scopes).toEqual([
+    expect(frameField?.locator?.scopes.map(({ kind, selector }) => ({ kind, selector }))).toEqual([
       { kind: 'frame', selector: 'iframe[name="address-frame"]' },
     ]);
   });
@@ -96,7 +179,10 @@ describe('GET /form-spec against a live browser document', () => {
     const fields = spec.forms.flatMap((form) => form.fields);
 
     expect(fields.find((field) => field.id === 'wizard-email')).toMatchObject({ stepIndex: 0 });
-    expect(fields.find((field) => field.id === 'years')).toMatchObject({ stepIndex: 1 });
+    expect(fields.find((field) => field.id === 'years')).toMatchObject({
+      stepIndex: 1,
+      locator: { verification: 'fresh-load' },
+    });
     expect(spec.forms.find((form) => form.stepIndex === 1)?.action).toBe(
       `${server.origin}/wizard-submitted`,
     );

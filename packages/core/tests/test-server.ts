@@ -182,16 +182,77 @@ const LIVE_FORMS = `<!doctype html>
   <section id="account-shell"></section>
   <section id="private-shell"></section>
   <section id="generated-host-a83cf87f"></section>
+  <section class="anonymous-shell"></section>
   <iframe id="embedded" src="/embedded-form"></iframe>
   <iframe id="generated-frame-a83cf87f" name="address-frame" src="/generated-frame-form"></iframe>
   <script>
     const root = document.getElementById('account-shell').attachShadow({ mode: 'open' });
-    root.innerHTML = '<form id="account"><label for="shadow-email">Work email</label><input id="shadow-email" type="email" autocomplete="email"></form><iframe id="shadow-frame" src="/shadow-frame-form"></iframe>';
+    root.innerHTML = '<form id="account"><label for="shadow-email">Work email</label><input id="shadow-email" type="email" autocomplete="email"></form><section><span>Anonymous shadow field</span><input></section><iframe id="shadow-frame" src="/shadow-frame-form"></iframe>';
     const closed = document.getElementById('private-shell').attachShadow({ mode: 'closed' });
     closed.innerHTML = '<label for="private-code">Private code</label><input id="private-code">';
     const generated = document.getElementById('generated-host-a83cf87f').attachShadow({ mode: 'open' });
     generated.innerHTML = '<label for="generated-field">Generated host field</label><input id="generated-field">';
+    const anonymous = document.querySelector('.anonymous-shell').attachShadow({ mode: 'open' });
+    anonymous.innerHTML = '<label for="anonymous-host-field">Anonymous host field</label><input id="anonymous-host-field">';
   </script>
+</body></html>`;
+
+let generatedFormId = 112_599;
+
+function generatedIdForm(): string {
+  generatedFormId += 1;
+  const id = `select-input-${generatedFormId}`;
+  return `<!doctype html><html><body>
+    <main><section><label for="${id}">Account type</label><input id="${id}"></section></main>
+  </body></html>`;
+}
+
+const CHOICE_WIDGETS = `<!doctype html><html><body>
+  <label id="colour-label">Favourite colour</label>
+  <div class="choice-control">
+    <span>Ocean</span>
+    <input id="colour-picker" role="combobox" aria-labelledby="colour-label"
+           aria-expanded="false" aria-controls="colour-options" value="">
+  </div>
+  <label id="size-label">Size</label>
+  <div id="size-picker" role="listbox" aria-labelledby="size-label">
+    <div role="option" data-value="small" aria-selected="true">Small</div>
+    <div role="option" data-value="large">Large</div>
+  </div>
+  <script>
+    const picker = document.getElementById('colour-picker');
+    const close = () => {
+      picker.setAttribute('aria-expanded', 'false');
+      document.getElementById('colour-options')?.remove();
+    };
+    picker.addEventListener('click', () => {
+      picker.setAttribute('aria-expanded', 'true');
+      const listbox = document.createElement('div');
+      listbox.id = 'colour-options';
+      listbox.setAttribute('role', 'listbox');
+      listbox.setAttribute('aria-setsize', '3');
+      listbox.innerHTML = '<div role="option" data-value="ocean" aria-selected="true">Ocean</div><div role="option" data-value="red">Red</div><div role="option" data-value="blue">Blue</div>';
+      document.body.append(listbox);
+    });
+    picker.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') close();
+    });
+    const sizePicker = document.getElementById('size-picker');
+    const mutateSize = () => {
+      sizePicker.querySelector('[data-value="small"]').setAttribute('aria-selected', 'false');
+      sizePicker.querySelector('[data-value="large"]').setAttribute('aria-selected', 'true');
+    };
+    sizePicker.addEventListener('click', mutateSize);
+    sizePicker.addEventListener('keydown', mutateSize);
+  </script>
+</body></html>`;
+
+const SLOW_CHOICE_WIDGETS = `<!doctype html><html><body>
+  ${Array.from(
+    { length: 8 },
+    (_value, index) =>
+      `<input role="combobox" aria-label="Choice ${index}" aria-expanded="false" aria-controls="missing-${index}">`,
+  ).join('')}
 </body></html>`;
 
 const FORM_WIZARD = `<!doctype html>
@@ -270,6 +331,21 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/live-forms') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(LIVE_FORMS);
+      return;
+    }
+    if (path === '/generated-id-form') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(generatedIdForm());
+      return;
+    }
+    if (path === '/choice-widgets') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(CHOICE_WIDGETS);
+      return;
+    }
+    if (path === '/slow-choice-widgets') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(SLOW_CHOICE_WIDGETS);
       return;
     }
     if (path === '/embedded-form') {

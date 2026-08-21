@@ -54,18 +54,31 @@ const cases: LiveCase[] = [
 ];
 
 const browser = new BrowserStrategy({ timeoutMs: 30_000 });
+const failures: Error[] = [];
 
 try {
   for (const testCase of cases) {
-    const { spec } = await browser.inspectForms(testCase.url);
-    const fields = spec.forms.flatMap((form) => form.fields);
-    const steps = [...new Set(fields.flatMap((field) => field.stepIndex ?? []))];
+    const startedAt = Date.now();
+    try {
+      const { spec } = await browser.inspectForms(testCase.url);
+      const fields = spec.forms.flatMap((form) => form.fields);
+      const steps = [...new Set(fields.flatMap((field) => field.stepIndex ?? []))];
 
-    testCase.verify(spec);
-    console.log(
-      `${testCase.name}: ${spec.forms.length} forms, ${fields.length} fields, steps ${steps.join(', ')}`,
-    );
+      testCase.verify(spec);
+      console.log(
+        `${testCase.name}: ${spec.forms.length} forms, ${fields.length} fields, steps ${steps.join(', ')}, ${Date.now() - startedAt}ms`,
+      );
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error(String(error));
+      failures.push(
+        new Error(`${testCase.name} (${Date.now() - startedAt}ms): ${failure.message}`),
+      );
+      console.error(failures.at(-1)?.message);
+    }
   }
 } finally {
   await browser.close();
 }
+
+if (failures.length > 0)
+  throw new AggregateError(failures, `${failures.length} live form check(s) failed`);

@@ -4,6 +4,7 @@ import type { AnyNode, Element } from 'domhandler';
 import {
   FormSpecSchema,
   type Field,
+  type FieldInteraction,
   type FieldOption,
   type FieldType,
   type Form,
@@ -51,10 +52,16 @@ const INPUT_TYPES = new Set<FieldType>([
 const BUTTON_TYPES = new Set(['submit', 'button', 'reset', 'image']);
 
 const CONTROL_SELECTOR =
-  'input, select, textarea, [contenteditable="true"], [role="textbox"], [role="combobox"]';
+  'input, select, textarea, [contenteditable="true"], [role="textbox"], [role="combobox"], [role="listbox"]';
 
-export function extractForms(doc: HtmlDocument): FormSpec {
-  const $ = cheerio.load(doc.html);
+export interface ExtractFormsOptions {
+  /** The root against which published selectors will be replayed. */
+  selectorRoot?: 'document' | 'fragment';
+}
+
+export function extractForms(doc: HtmlDocument, options: ExtractFormsOptions = {}): FormSpec {
+  const selectorRoot = options.selectorRoot ?? 'document';
+  const $ = cheerio.load(doc.html, null, selectorRoot === 'document');
   const forms: Form[] = [];
 
   $('form').each((_index, element) => {
@@ -67,7 +74,10 @@ export function extractForms(doc: HtmlDocument): FormSpec {
   // would mean a spec that cannot describe the page it just read.
   const orphans = $(CONTROL_SELECTOR)
     .toArray()
-    .filter((element) => $(element).parents('form').length === 0);
+    .filter(
+      (element) =>
+        $(element).parents('form').length === 0 && !isOwnedChoicePopup($, element as Element),
+    );
 
   if (orphans.length > 0) {
     forms.push({
@@ -93,7 +103,10 @@ function readForm($: cheerio.CheerioAPI, element: Element, baseUrl: string): For
   const $form = $(element);
   const selector = selectorFor($, element, null);
 
-  const controls = $form.find(CONTROL_SELECTOR).toArray();
+  const controls = $form
+    .find(CONTROL_SELECTOR)
+    .toArray()
+    .filter((control) => !isOwnedChoicePopup($, control as Element));
   const action = toAbsoluteUrl($form.attr('action') ?? '', baseUrl);
   const method = ($form.attr('method') ?? 'get').toLowerCase() === 'post' ? 'post' : 'get';
 
@@ -191,13 +204,16 @@ function readField(
   const $control = $(element);
   const name = $control.attr('name') ?? null;
   const id = $control.attr('id') ?? null;
+  const interaction = interactionOf($, element, type, groupWith);
+  const role = ($control.attr('role') ?? '').toLowerCase();
+  const usesAriaChoiceWidget = role === 'combobox' || role === 'listbox';
 
   const { label, labelSource } =
     groupWith.length > 1
       ? resolveGroupLabel($, groupWith)
       : type === 'hidden'
         ? resolveHiddenLabel($, element)
-        : resolveLabel($, element);
+        : resolveLabel($, element, !usesAriaChoiceWidget);
   const autocomplete = $control.attr('autocomplete') ?? null;
 
   // A group is addressed by its shared name: the filler picks among the
@@ -212,6 +228,7 @@ function readField(
     name,
     id,
     type,
+    interaction,
     label,
     labelSource,
     description: resolveDescription($, element),
@@ -222,6 +239,7 @@ function readField(
     sensitive: isSensitive({ type, name, id, label, autocomplete }),
     placeholder: collapseOrNull($control.attr('placeholder')),
     options: readOptions($, element, type, groupWith),
+    currentValues: readCurrentValues($, element, type, groupWith),
     pattern: $control.attr('pattern') ?? null,
     maxLength: numberAttribute($control.attr('maxlength')),
     minLength: numberAttribute($control.attr('minlength')),
@@ -251,6 +269,17 @@ function typeOf($: cheerio.CheerioAPI, element: Element): FieldType | null {
   return 'custom';
 }
 
+function isOwnedChoicePopup($: cheerio.CheerioAPI, element: Element): boolean {
+  if ($(element).attr('role') !== 'listbox') return false;
+  const id = $(element).attr('id');
+  if (!id) return false;
+  const escaped = escapeAttribute(id);
+  return (
+    $(`[role="combobox"][aria-controls~="${escaped}"], [role="combobox"][aria-owns~="${escaped}"]`)
+      .length > 0
+  );
+}
+
 /**
  * Label resolution, in the order the plan sets — which is also the order of
  * how much each source deserves to be trusted.
@@ -264,6 +293,7 @@ function typeOf($: cheerio.CheerioAPI, element: Element): FieldType | null {
 function resolveLabel(
   $: cheerio.CheerioAPI,
   element: Element,
+  allowNearby = true,
 ): { label: string | null; labelSource: LabelSource | null } {
   const $control = $(element);
   const id = $control.attr('id');
@@ -296,8 +326,10 @@ function resolveLabel(
   const title = collapseOrNull($control.attr('title'));
   if (title) return { label: title, labelSource: 'title' };
 
-  const nearby = nearbyText($, element);
-  if (nearby) return { label: nearby, labelSource: 'nearby-text' };
+  if (allowNearby) {
+    const nearby = nearbyText($, element);
+    if (nearby) return { label: nearby, labelSource: 'nearby-text' };
+  }
 
   // 18 of 69 controls in the fixture set land here. Null, not a guess: an
   // invented label is a lie the matcher would then act on.
@@ -461,13 +493,84 @@ function readOptions(
   return [];
 }
 
+function interactionOf(
+  $: cheerio.CheerioAPI,
+  element: Element,
+  type: FieldType,
+  groupWith: Element[],
+): FieldInteraction {
+  const role = ($(element).attr('role') ?? '').toLowerCase();
+  if (role === 'combobox' || role === 'listbox') {
+    return {
+      kind: 'choose',
+      mode: $(element).attr('aria-multiselectable') === 'true' ? 'multiple' : 'single',
+      optionsStatus: 'dynamic',
+    };
+  }
+  if (type === 'select') {
+    return {
+      kind: 'choose',
+      mode: has($(element), 'multiple') ? 'multiple' : 'single',
+      optionsStatus: 'complete',
+    };
+  }
+  if (type === 'radio') {
+    return { kind: 'choose', mode: 'single', optionsStatus: 'complete' };
+  }
+  if (type === 'checkbox') {
+    return groupWith.length > 1
+      ? { kind: 'choose', mode: 'multiple', optionsStatus: 'complete' }
+      : { kind: 'toggle' };
+  }
+  if (type === 'file') return { kind: 'upload' };
+  if (type === 'hidden') return { kind: 'none' };
+  return { kind: 'type' };
+}
+
+function readCurrentValues(
+  $: cheerio.CheerioAPI,
+  element: Element,
+  type: FieldType,
+  groupWith: Element[],
+): string[] {
+  if (type === 'select') {
+    return $(element)
+      .find('option[selected]')
+      .toArray()
+      .map((option) => $(option).attr('value') ?? collapseWhitespace($(option).text()));
+  }
+
+  if (groupWith.length > 0) {
+    return groupWith
+      .filter((member) => has($(member), 'checked'))
+      .map((member) => $(member).attr('value') ?? 'on');
+  }
+
+  const $element = $(element);
+  const explicit = $element.attr('aria-valuetext') ?? $element.attr('value');
+  if (explicit) return [explicit];
+
+  if (type === 'custom') {
+    const selected = $element
+      .find('[aria-selected="true"]')
+      .toArray()
+      .map((node) => collapseWhitespace($(node).text()))
+      .filter(Boolean);
+    if (selected.length > 0) return selected;
+    const text = collapseOrNull($element.text());
+    return text ? [text] : [];
+  }
+
+  return [];
+}
+
 /**
- * A selector that will still find this control after the next deploy.
+ * The best CSS address available in this extraction snapshot.
  *
  * `#id` first, then `[name=]` scoped to the form, then a positional path.
- * Never a class: framework classes are generated and change without warning,
- * and a selector that worked when the spec was built but not when the filler
- * runs is the failure that makes the whole system look unreliable.
+ * Never a class: framework classes are generated and change without warning.
+ * Live inspection promotes this into an ordered locator recipe and verifies it
+ * on a fresh load; static extraction cannot claim that durability.
  *
  * Each candidate is checked for uniqueness against the document before it is
  * accepted — a selector that matches two things is not an address.
@@ -476,7 +579,7 @@ function selectorFor($: cheerio.CheerioAPI, element: Element, formSelector: stri
   const $element = $(element);
 
   const id = $element.attr('id');
-  if (id && isStableId(id)) {
+  if (id && isPlausiblyStableId(id)) {
     const candidate = `#${escapeAttribute(id)}`;
     if ($(candidate).length === 1) return candidate;
   }
@@ -491,18 +594,19 @@ function selectorFor($: cheerio.CheerioAPI, element: Element, formSelector: stri
 }
 
 /**
- * Ids that a framework generated rather than a person chose.
+ * Reject ids already known to be generated.
  *
- * React's `useId` emits `«r1»` / `:r1:`, and bundlers emit hex hashes. They are
- * unique today and different tomorrow, which is the one thing a selector must
- * not be.
+ * Passing this check is deliberately only candidacy, never proof of stability:
+ * `select-input-112599` looks ordinary in one document and still changes on
+ * the next load. Live inspection verifies candidates across that boundary.
+ * Static extraction has no second observation and therefore publishes no
+ * verified locator.
  */
-export function isStableId(id: string): boolean {
-  if (/[:«»\s]/.test(id)) return false;
-  if (/^[0-9a-f]{16,}$/i.test(id)) return false;
-  if (/[-_][0-9a-f]{8,}$/i.test(id)) return false;
-  if (/^(radix|headlessui|mui|mantine)-/i.test(id)) return false;
-  return true;
+export const IMPLAUSIBLE_ID_PATTERN =
+  /[:«»\s]|^[0-9a-f]{16,}$|[-_][0-9a-f]{8,}$|^(?:radix|headlessui|mui|mantine)-/i;
+
+export function isPlausiblyStableId(id: string): boolean {
+  return !IMPLAUSIBLE_ID_PATTERN.test(id);
 }
 
 /**
@@ -519,13 +623,13 @@ function positionalPath($: cheerio.CheerioAPI, element: Element): string {
 
   while (cursor && cursor.tagName && cursor.tagName.toLowerCase() !== 'html') {
     const id = $(cursor).attr('id');
-    if (id && isStableId(id) && $(`#${escapeAttribute(id)}`).length === 1) {
+    if (id && isPlausiblyStableId(id) && $(`#${escapeAttribute(id)}`).length === 1) {
       steps.unshift(`#${escapeAttribute(id)}`);
       break;
     }
 
     const tag = cursor.tagName.toLowerCase();
-    const index = $(cursor).parent().children(tag).index(cursor) + 1;
+    const index = $(cursor).prevAll(tag).length + 1;
     steps.unshift(`${tag}:nth-of-type(${index})`);
 
     if (tag === 'body') break;
