@@ -262,8 +262,8 @@ const GROUPED_CONTROLS = `<!doctype html><html><body>
       <label><input type="checkbox" name="channel" value="sms"> SMS</label>
     </fieldset>
   </form>
-  <form id="morning">
-    <fieldset><legend>Morning slot</legend>
+  <form>
+    <fieldset data-testid="morning-slot-group"><legend>Morning slot</legend>
       <label><input type="radio" name="slot" value="early"> Early</label>
       <label><input type="radio" name="slot" value="noon"> Noon</label>
     </fieldset>
@@ -274,12 +274,29 @@ const GROUPED_CONTROLS = `<!doctype html><html><body>
       <label><input type="radio" name="slot" value="night"> Night</label>
     </fieldset>
   </form>
+  <fieldset id="123.choice"><legend>Orphan slot</legend>
+    <label><input type="radio" name="slot" value="one"> One</label>
+    <label><input type="radio" name="slot" value="two"> Two</label>
+    <label><input type="radio" name="slot" value="three"> Three</label>
+  </fieldset>
+  <fieldset role="radiogroup" aria-label="Second orphan slot"><legend>Second orphan slot</legend>
+    <label><input type="radio" name="slot" value="four"> Four</label>
+    <label><input type="radio" name="slot" value="five"> Five</label>
+    <label><input type="radio" name="slot" value="six"> Six</label>
+  </fieldset>
   <form id="terms-a">
     <label><input type="checkbox" name="consent" value="first"> Accept first policy</label>
   </form>
   <form id="terms-b">
     <label><input type="checkbox" name="consent" value="second"> Accept second policy</label>
   </form>
+</body></html>`;
+
+const MANY_IFRAMES = `<!doctype html><html><body>
+  ${Array.from(
+    { length: 17 },
+    (_value, index) => `<iframe name="form-${index}" src="/embedded-form?index=${index}"></iframe>`,
+  ).join('')}
 </body></html>`;
 
 let changingGroupLoads = 0;
@@ -309,6 +326,16 @@ function changingGroupCountForm(): string {
       ${second}
     </fieldset>
   </form></body></html>`;
+}
+
+let changingFrameScopeLoads = 0;
+
+function changingFrameScopeForm(): string {
+  changingFrameScopeLoads += 1;
+  const version = changingFrameScopeLoads % 2 === 1 ? 'original' : 'changed';
+  return `<!doctype html><html><body>
+    <iframe name="${version}-frame" src="/embedded-form?scope=${version}"></iframe>
+  </body></html>`;
 }
 
 const FORM_WIZARD = `<!doctype html>
@@ -409,6 +436,11 @@ export async function startTestServer(): Promise<TestServer> {
       response.end(GROUPED_CONTROLS);
       return;
     }
+    if (path === '/many-iframes') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(MANY_IFRAMES);
+      return;
+    }
     if (path === '/changing-group') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(changingGroupForm());
@@ -417,6 +449,11 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/changing-group-count') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(changingGroupCountForm());
+      return;
+    }
+    if (path === '/changing-frame-scope') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(changingFrameScopeForm());
       return;
     }
     if (path === '/embedded-form') {

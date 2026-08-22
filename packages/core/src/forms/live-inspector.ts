@@ -8,6 +8,7 @@ import {
   type FormSpec,
   type LabelSource,
   type LocatorCandidate,
+  type LocatorCandidateFailure,
 } from '@untitled/schema';
 import { extractForms, IMPLAUSIBLE_ID_PATTERN, isPlausiblyStableId } from '../core/forms.js';
 import type { HtmlDocument } from '../core/types.js';
@@ -243,15 +244,16 @@ async function collectStep(
         // Promise.all here makes every widget race for the page's one listbox.
         for (const field of form.fields) {
           const enriched = await enrichLiveField(frame, scope.scopes, field, deadline);
-          const candidates = await candidatesForField(frame, scope.scopes, enriched);
+          const discovery = await candidatesForField(frame, scope.scopes, enriched);
           locatedFields.push({
             ...enriched,
             locator: {
               scopes,
               cardinality: locatorCardinalityFor(enriched),
               selector: enriched.selector,
-              candidates,
-              preferred: candidates[0] ?? null,
+              candidates: discovery.candidates,
+              candidateFailures: discovery.failures,
+              preferred: discovery.candidates[0] ?? null,
               verification: 'snapshot-only' as const,
               fingerprint: {
                 type: enriched.type,
@@ -297,6 +299,7 @@ async function rootForScopes(
   root: LocatorRoot,
   scopes: FieldScope[],
   recordSelection = false,
+  failures?: LocatorCandidateFailure[],
 ): Promise<LocatorRoot | null> {
   let current = root;
   for (const scope of scopes) {
@@ -305,6 +308,7 @@ async function rootForScopes(
       scope.candidates ?? [{ kind: 'css', selector: scope.selector, source: 'path' }],
       scope.fingerprint,
       recordSelection,
+      failures,
     );
     if (!candidate || candidate.kind !== 'css') return null;
     if (recordSelection) {
@@ -329,6 +333,7 @@ async function firstMatchingScopeCandidate(
   candidates: LocatorCandidate[],
   fingerprint: FieldScope['fingerprint'],
   requireDurableIdentity: boolean,
+  failures?: LocatorCandidateFailure[],
 ): Promise<LocatorCandidate | null> {
   for (const candidate of candidates) {
     if (candidate.kind !== 'css') continue;
@@ -339,10 +344,20 @@ async function firstMatchingScopeCandidate(
       !fingerprint?.ariaLabel &&
       !fingerprint?.src
     ) {
+      failures?.push({ candidate, reason: 'identity-unproven' });
       continue;
     }
     const locator = root.locator(candidate.selector);
-    if ((await locator.count()) !== 1) continue;
+    const count = await locator.count();
+    if (count !== 1) {
+      failures?.push({
+        candidate,
+        reason: 'cardinality-mismatch',
+        expected: '1',
+        actual: String(count),
+      });
+      continue;
+    }
     if (fingerprint) {
       const observed = await locator.evaluate((element) => ({
         tag: element.tagName.toLowerCase(),
@@ -356,6 +371,12 @@ async function firstMatchingScopeCandidate(
         observed.ariaLabel !== fingerprint.ariaLabel ||
         observed.src !== fingerprint.src
       ) {
+        failures?.push({
+          candidate,
+          reason: 'scope-fingerprint-mismatch',
+          expected: JSON.stringify(fingerprint),
+          actual: JSON.stringify(observed),
+        });
         continue;
       }
     }
@@ -504,14 +525,31 @@ async function candidatesForField(
   frame: Frame,
   scopes: FieldScope[],
   field: Field,
-): Promise<LocatorCandidate[]> {
+): Promise<{ candidates: LocatorCandidate[]; failures: LocatorCandidateFailure[] }> {
   const root = await rootForScopes(frame, scopes);
-  if (!root) return [];
+  if (!root) return { candidates: [], failures: [] };
   const control = root.locator(field.selector);
   const cardinality = cardinalityOf(field);
   const expectedCount = cardinality.kind === 'group' ? cardinality.count : 1;
   const isGroup = cardinality.kind === 'group';
-  if ((await control.count()) !== expectedCount) return [];
+  const controlCount = await control.count();
+  if (controlCount !== expectedCount) {
+    return {
+      candidates: [],
+      failures: [
+        {
+          candidate: {
+            kind: 'css',
+            selector: field.selector,
+            source: isGroup ? 'container' : 'path',
+          },
+          reason: 'cardinality-mismatch',
+          expected: String(expectedCount),
+          actual: String(controlCount),
+        },
+      ],
+    };
+  }
   const representative = control.first();
 
   const candidates: LocatorCandidate[] = [];
@@ -538,14 +576,15 @@ async function candidatesForField(
     }
     return parts.join(' > ');
   });
-  if (name)
+  const nameSelector = name ? `[name="${escapeCssAttribute(name)}"]` : null;
+  if (nameSelector)
     candidates.push({
       kind: 'css',
-      selector: `[name="${escapeCssAttribute(name)}"]`,
+      selector: nameSelector,
       source: 'name',
     });
-  if (isGroup) {
-    candidates.push({ kind: 'css', selector: field.selector, source: 'path' });
+  if (isGroup && field.selector !== nameSelector) {
+    candidates.push({ kind: 'css', selector: field.selector, source: 'container' });
   }
   if (!isGroup && testId)
     candidates.push({
@@ -576,12 +615,22 @@ async function candidatesForField(
   if (!isGroup) candidates.push({ kind: 'css', selector: positional, source: 'path' });
 
   const unique: LocatorCandidate[] = [];
+  const failures: LocatorCandidateFailure[] = [];
   for (const candidate of candidates) {
     if (unique.some((existing) => JSON.stringify(existing) === JSON.stringify(candidate))) continue;
     const locator = locatorForCandidate(root, candidate);
-    if ((await locator.count()) === expectedCount) unique.push(candidate);
+    const count = await locator.count();
+    if (count === expectedCount) unique.push(candidate);
+    else {
+      failures.push({
+        candidate,
+        reason: 'cardinality-mismatch',
+        expected: String(expectedCount),
+        actual: String(count),
+      });
+    }
   }
-  return unique;
+  return { candidates: unique, failures };
 }
 
 async function roleOf(control: Locator, field: Field): Promise<string | null> {
@@ -665,17 +714,37 @@ async function verifyFieldLocator(
   warnings: FormInspectionWarning[],
 ): Promise<void> {
   if (!field.locator) return;
-  const root = await rootForScopes(page, field.locator.scopes, true);
-  if (!root) return;
-  const replayed: LocatorCandidate[] = [];
-  for (const candidate of field.locator.candidates ?? []) {
-    if (await candidateMatchesField(root, candidate, field)) replayed.push(candidate);
+  const scopeFailures: LocatorCandidateFailure[] = [];
+  const root = await rootForScopes(page, field.locator.scopes, true, scopeFailures);
+  if (!root) {
+    warnings.push({
+      code: 'locator-not-replayable',
+      message: `No locator scope replayed with the expected fingerprint for ${field.label ?? field.name ?? field.id ?? 'an unnamed field'}.`,
+      candidateFailures: scopeFailures,
+    });
+    return;
   }
+  const replayed: LocatorCandidate[] = [];
+  const candidateFailures: LocatorCandidateFailure[] = [...(field.locator.candidateFailures ?? [])];
+  for (const candidate of field.locator.candidates ?? []) {
+    const result = await candidateMatchesField(root, candidate, field);
+    if (result.matched) replayed.push(candidate);
+    else {
+      candidateFailures.push({
+        candidate,
+        reason: result.reason,
+        ...(result.expected === undefined ? {} : { expected: result.expected }),
+        ...(result.actual === undefined ? {} : { actual: result.actual }),
+      });
+    }
+  }
+  field.locator.candidateFailures = candidateFailures;
   const preferred = replayed[0] ?? null;
   if (!preferred) {
     warnings.push({
       code: 'locator-not-replayable',
       message: `No locator candidate replayed with the expected cardinality and fingerprint for ${field.label ?? field.name ?? field.id ?? 'an unnamed field'}.`,
+      candidateFailures,
     });
     return;
   }
@@ -705,12 +774,28 @@ async function candidateMatchesField(
   root: LocatorRoot,
   candidate: LocatorCandidate,
   field: Field,
-): Promise<boolean> {
+): Promise<
+  | { matched: true }
+  | {
+      matched: false;
+      reason: LocatorCandidateFailure['reason'];
+      expected?: string;
+      actual?: string;
+    }
+> {
   const locator = locatorForCandidate(root, candidate);
   const cardinality = cardinalityOf(field);
   const expectedCount = cardinality.kind === 'group' ? cardinality.count : 1;
   const isGroup = cardinality.kind === 'group';
-  if ((await locator.count()) !== expectedCount) return false;
+  const actualCount = await locator.count();
+  if (actualCount !== expectedCount) {
+    return {
+      matched: false,
+      reason: 'cardinality-mismatch',
+      expected: String(expectedCount),
+      actual: String(actualCount),
+    };
+  }
 
   const observed = await locator.evaluateAll((elements, group) => {
     const members = elements.map((element) => {
@@ -799,12 +884,25 @@ async function candidateMatchesField(
 
     return { members, groupLabel };
   }, isGroup);
-  if (
-    observed.members.some(
-      (member) => member.type !== field.type || member.interactionKind !== field.interaction.kind,
-    )
-  ) {
-    return false;
+  const observedTypes = [...new Set(observed.members.map((member) => member.type))];
+  if (observedTypes.some((type) => type !== field.type)) {
+    return {
+      matched: false,
+      reason: 'type-mismatch',
+      expected: field.type,
+      actual: observedTypes.sort().join(','),
+    };
+  }
+  const observedInteractions = [
+    ...new Set(observed.members.map((member) => member.interactionKind)),
+  ];
+  if (observedInteractions.some((kind) => kind !== field.interaction.kind)) {
+    return {
+      matched: false,
+      reason: 'interaction-mismatch',
+      expected: field.interaction.kind,
+      actual: observedInteractions.sort().join(','),
+    };
   }
 
   // Type alone is not an identity. A positional selector for an anonymous
@@ -816,19 +914,40 @@ async function candidateMatchesField(
   );
   const hasDurableCandidate =
     candidate.kind === 'role-name' || (candidate.kind === 'css' && candidate.source !== 'path');
-  if (!hasDurableCandidate && !field.name && !hasDirectLabel) return false;
+  if (!hasDurableCandidate && !field.name && !hasDirectLabel) {
+    return { matched: false, reason: 'identity-unproven' };
+  }
 
-  if (field.name && observed.members.some((member) => member.name !== field.name)) return false;
+  if (field.name && observed.members.some((member) => member.name !== field.name)) {
+    return {
+      matched: false,
+      reason: 'name-mismatch',
+      expected: field.name,
+      actual: [...new Set(observed.members.map((member) => member.name ?? ''))].sort().join(','),
+    };
+  }
 
   if (isGroup) {
     const expectedValues = field.options.map((option) => option.value).sort();
     const observedValues = observed.members.map((member) => member.value).sort();
-    if (JSON.stringify(observedValues) !== JSON.stringify(expectedValues)) return false;
+    if (JSON.stringify(observedValues) !== JSON.stringify(expectedValues)) {
+      return {
+        matched: false,
+        reason: 'option-values-mismatch',
+        expected: JSON.stringify(expectedValues),
+        actual: JSON.stringify(observedValues),
+      };
+    }
     if (
       hasDirectLabel &&
       observed.groupLabel.replace(/\s+/g, ' ').trim() !== field.label?.replace(/\s+/g, ' ').trim()
     ) {
-      return false;
+      return {
+        matched: false,
+        reason: 'label-mismatch',
+        expected: field.label ?? '',
+        actual: observed.groupLabel,
+      };
     }
   }
 
@@ -861,11 +980,16 @@ async function candidateMatchesField(
       return element.closest('label')?.textContent?.trim() ?? '';
     });
     if (accessibleName.replace(/\s+/g, ' ').trim() !== field.label.replace(/\s+/g, ' ').trim()) {
-      return false;
+      return {
+        matched: false,
+        reason: 'label-mismatch',
+        expected: field.label,
+        actual: accessibleName,
+      };
     }
   }
 
-  return true;
+  return { matched: true };
 }
 
 async function findNextControl(page: Page) {

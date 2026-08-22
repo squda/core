@@ -125,7 +125,7 @@ describe('GET /form-spec against a live browser document', () => {
     expect(Date.now() - startedAt).toBeLessThan(3_000);
   });
 
-  it('verifies checkbox groups and scopes duplicate radio names to their forms', async () => {
+  it('verifies checkbox groups and scopes duplicate radio names to forms or containers', async () => {
     const spec = await inspect('/grouped-controls');
     const fields = spec.forms.flatMap((form) => form.fields);
     const channels = fields.find((field) => field.name === 'channel');
@@ -137,12 +137,32 @@ describe('GET /form-spec against a live browser document', () => {
       preferred: { kind: 'css', selector: '[name="channel"]', source: 'name' },
       verification: 'fresh-load',
     });
-    expect(slots).toHaveLength(2);
+    expect(slots).toHaveLength(4);
     expect(slots.map((field) => field.locator?.preferred)).toEqual([
-      { kind: 'css', selector: '#morning [name="slot"]', source: 'path' },
-      { kind: 'css', selector: '#evening [name="slot"]', source: 'path' },
+      {
+        kind: 'css',
+        selector: '[data-testid="morning-slot-group"] [name="slot"]',
+        source: 'container',
+      },
+      { kind: 'css', selector: '#evening [name="slot"]', source: 'container' },
+      { kind: 'css', selector: '[id="123.choice"] [name="slot"]', source: 'container' },
+      {
+        kind: 'css',
+        selector: '[role="radiogroup"][aria-label="Second orphan slot"] [name="slot"]',
+        source: 'container',
+      },
     ]);
     expect(slots.every((field) => field.locator?.verification === 'fresh-load')).toBe(true);
+    expect(
+      slots.every((field) =>
+        field.locator?.candidateFailures?.some(
+          (failure) =>
+            failure.candidate.kind === 'css' &&
+            failure.candidate.source === 'name' &&
+            failure.reason === 'cardinality-mismatch',
+        ),
+      ),
+    ).toBe(true);
     expect(independentCheckboxes).toHaveLength(2);
     expect(
       independentCheckboxes.map((field) => ({
@@ -177,6 +197,14 @@ describe('GET /form-spec against a live browser document', () => {
       expect.objectContaining({
         code: 'locator-not-replayable',
         message: expect.stringContaining('Delivery timing'),
+        candidateFailures: expect.arrayContaining([
+          expect.objectContaining({
+            candidate: { kind: 'css', selector: '[name="timing"]', source: 'name' },
+            reason: 'option-values-mismatch',
+            expected: '["no","yes"]',
+            actual: '["later","yes"]',
+          }),
+        ]),
       }),
     );
   });
@@ -220,6 +248,40 @@ describe('GET /form-spec against a live browser document', () => {
         selector: '#city',
       },
     });
+  });
+
+  it('reports why an iframe scope cannot be replayed on a fresh load', async () => {
+    const spec = await inspect('/changing-frame-scope');
+    const field = spec.forms.flatMap((form) => form.fields)[0];
+
+    expect(field?.locator?.verification).toBe('snapshot-only');
+    expect(spec.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'locator-not-replayable',
+        message: expect.stringContaining('scope'),
+        candidateFailures: expect.arrayContaining([
+          expect.objectContaining({ reason: 'scope-fingerprint-mismatch' }),
+        ]),
+      }),
+    );
+  });
+
+  it('traverses and fresh-load verifies 17 deterministic iframes within one deadline', async () => {
+    const startedAt = Date.now();
+    const result = await pool.inspectForms(`${server.origin}/many-iframes`, {
+      allowPrivate: true,
+      timeoutMs: 10_000,
+    });
+    const fields = result.spec.forms.flatMap((form) => form.fields);
+
+    expect(fields).toHaveLength(17);
+    expect(fields.every((field) => field.locator?.verification === 'fresh-load')).toBe(true);
+    expect(result.spec.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'inspection-budget-exhausted' }),
+    );
+    // The product still enforces 10s. This outer assertion allows cleanup and
+    // scheduler noise so a slow CI host does not turn the benchmark flaky.
+    expect(Date.now() - startedAt).toBeLessThan(12_500);
   });
 
   it('records alternating shadow-root and iframe hops in order', async () => {

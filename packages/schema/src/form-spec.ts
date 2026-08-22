@@ -102,7 +102,7 @@ export const LocatorCandidateSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('css'),
     selector: z.string().min(1),
-    source: z.enum(['name', 'test-id', 'aria-label', 'id', 'src', 'path']),
+    source: z.enum(['name', 'test-id', 'aria-label', 'id', 'src', 'container', 'path']),
   }),
   z.object({
     kind: z.literal('role-name'),
@@ -116,6 +116,22 @@ export const LocatorCardinalitySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('single') }),
   z.object({ kind: z.literal('group'), count: z.number().int().min(2) }),
 ]);
+
+export const LocatorCandidateFailureSchema = z.object({
+  candidate: LocatorCandidateSchema,
+  reason: z.enum([
+    'cardinality-mismatch',
+    'type-mismatch',
+    'interaction-mismatch',
+    'identity-unproven',
+    'name-mismatch',
+    'option-values-mismatch',
+    'label-mismatch',
+    'scope-fingerprint-mismatch',
+  ]),
+  expected: z.string().optional(),
+  actual: z.string().optional(),
+});
 
 /**
  * A boundary crossed on the way from the page document to a control.
@@ -146,6 +162,8 @@ export const FieldLocatorSchema = z.object({
   /** Deprecated compatibility selector. New consumers replay `preferred`. */
   selector: z.string().min(1),
   candidates: z.array(LocatorCandidateSchema).optional(),
+  /** Candidates rejected while building or replaying this locator. */
+  candidateFailures: z.array(LocatorCandidateFailureSchema).optional(),
   preferred: LocatorCandidateSchema.nullable().optional(),
   verification: z.enum(['fresh-load', 'snapshot-only']).optional(),
   fingerprint: z
@@ -277,6 +295,8 @@ export const FormInspectionWarningSchema = z.object({
     'locator-not-replayable',
   ]),
   message: z.string().min(1),
+  /** Why each published candidate was rejected during fresh-load replay. */
+  candidateFailures: z.array(LocatorCandidateFailureSchema).optional(),
 });
 
 /**
@@ -301,6 +321,7 @@ export type FieldOption = z.infer<typeof FieldOptionSchema>;
 export type FieldInteraction = z.infer<typeof FieldInteractionSchema>;
 export type LocatorCandidate = z.infer<typeof LocatorCandidateSchema>;
 export type LocatorCardinality = z.infer<typeof LocatorCardinalitySchema>;
+export type LocatorCandidateFailure = z.infer<typeof LocatorCandidateFailureSchema>;
 export type FieldScope = z.infer<typeof FieldScopeSchema>;
 export type FieldLocator = z.infer<typeof FieldLocatorSchema>;
 export type Field = z.infer<typeof FieldSchema>;

@@ -166,11 +166,17 @@ function readFields(
 
     if (type === 'radio' || type === 'checkbox') {
       const name = $control.attr('name');
+      const boundary = formSelector ? null : semanticGroupBoundary($, element as Element);
       const siblings = name
-        ? controls.filter(
-            (other) =>
-              $(other as Element).attr('name') === name && typeOf($, other as Element) === type,
-          )
+        ? controls
+            .filter(
+              (other) =>
+                $(other as Element).attr('name') === name && typeOf($, other as Element) === type,
+            )
+            .filter(
+              (other) =>
+                formSelector !== null || semanticGroupBoundary($, other as Element) === boundary,
+            )
         : [element];
 
       // A lone checkbox is its own question ("I agree"), so it keeps no
@@ -220,7 +226,7 @@ function readField(
   // options rather than typing into one particular radio.
   const selector =
     groupWith.length > 1 && name
-      ? scoped(formSelector, `[name="${escapeAttribute(name)}"]`)
+      ? selectorForGroup($, groupWith, formSelector, name)
       : selectorFor($, element, formSelector);
 
   return {
@@ -249,6 +255,68 @@ function readField(
     accept: $control.attr('accept') ?? null,
     multiple: has($control, 'multiple'),
   };
+}
+
+function selectorForGroup(
+  $: cheerio.CheerioAPI,
+  members: Element[],
+  formSelector: string | null,
+  name: string,
+): string {
+  const memberSelector = `[name="${escapeAttribute(name)}"]`;
+  const first = members[0];
+  if (!first) return memberSelector;
+  const semanticContainer = semanticGroupBoundary($, first);
+  const candidates: string[] = [];
+
+  if (
+    semanticContainer &&
+    members.every((member) => $(member).parents().toArray().includes(semanticContainer))
+  ) {
+    const stable = stableSemanticContainerSelector($, semanticContainer);
+    if (stable) candidates.push(scoped(stable, memberSelector));
+  }
+  if (formSelector) candidates.push(scoped(formSelector, memberSelector));
+
+  const container = semanticContainer ?? commonAncestor($, members);
+  if (container && !['html', 'body'].includes(container.tagName.toLowerCase())) {
+    candidates.push(scoped(selectorFor($, container, null), memberSelector));
+  }
+
+  return candidates.find((candidate) => $(candidate).length === members.length) ?? memberSelector;
+}
+
+function semanticGroupBoundary($: cheerio.CheerioAPI, member: Element): Element | null {
+  return (
+    ($(member).parents('fieldset, [role="radiogroup"], [role="group"]').first().get(0) as
+      Element | undefined) ?? null
+  );
+}
+
+function stableSemanticContainerSelector($: cheerio.CheerioAPI, container: Element): string | null {
+  const $container = $(container);
+  const candidates: string[] = [];
+  const id = $container.attr('id');
+  if (id && isPlausiblyStableId(id)) candidates.push(`[id="${escapeAttribute(id)}"]`);
+
+  const testId = $container.attr('data-testid');
+  if (testId) candidates.push(`[data-testid="${escapeAttribute(testId)}"]`);
+
+  const role = $container.attr('role');
+  const ariaLabel = $container.attr('aria-label');
+  const labelledBy = $container.attr('aria-labelledby');
+  if (role && ariaLabel) {
+    candidates.push(
+      `[role="${escapeAttribute(role)}"][aria-label="${escapeAttribute(ariaLabel)}"]`,
+    );
+  }
+  if (role && labelledBy) {
+    candidates.push(
+      `[role="${escapeAttribute(role)}"][aria-labelledby="${escapeAttribute(labelledBy)}"]`,
+    );
+  }
+
+  return candidates.find((candidate) => $(candidate).length === 1) ?? null;
 }
 
 function typeOf($: cheerio.CheerioAPI, element: Element): FieldType | null {
