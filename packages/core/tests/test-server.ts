@@ -255,6 +255,62 @@ const SLOW_CHOICE_WIDGETS = `<!doctype html><html><body>
   ).join('')}
 </body></html>`;
 
+const GROUPED_CONTROLS = `<!doctype html><html><body>
+  <form id="notifications">
+    <fieldset><legend>Notification channels</legend>
+      <label><input type="checkbox" name="channel" value="email"> Email</label>
+      <label><input type="checkbox" name="channel" value="sms"> SMS</label>
+    </fieldset>
+  </form>
+  <form id="morning">
+    <fieldset><legend>Morning slot</legend>
+      <label><input type="radio" name="slot" value="early"> Early</label>
+      <label><input type="radio" name="slot" value="noon"> Noon</label>
+    </fieldset>
+  </form>
+  <form id="evening">
+    <fieldset><legend>Evening slot</legend>
+      <label><input type="radio" name="slot" value="late"> Late</label>
+      <label><input type="radio" name="slot" value="night"> Night</label>
+    </fieldset>
+  </form>
+  <form id="terms-a">
+    <label><input type="checkbox" name="consent" value="first"> Accept first policy</label>
+  </form>
+  <form id="terms-b">
+    <label><input type="checkbox" name="consent" value="second"> Accept second policy</label>
+  </form>
+</body></html>`;
+
+let changingGroupLoads = 0;
+
+function changingGroupForm(): string {
+  changingGroupLoads += 1;
+  const secondValue = changingGroupLoads % 2 === 1 ? 'no' : 'later';
+  return `<!doctype html><html><body><form id="delivery">
+    <fieldset><legend>Delivery timing</legend>
+      <label><input type="radio" name="timing" value="yes"> Yes</label>
+      <label><input type="radio" name="timing" value="${secondValue}"> No</label>
+    </fieldset>
+  </form></body></html>`;
+}
+
+let changingGroupCountLoads = 0;
+
+function changingGroupCountForm(): string {
+  changingGroupCountLoads += 1;
+  const second =
+    changingGroupCountLoads % 2 === 1
+      ? '<label><input type="radio" name="frequency" value="weekly"> Weekly</label>'
+      : '';
+  return `<!doctype html><html><body><form id="digest">
+    <fieldset><legend>Digest frequency</legend>
+      <label><input type="radio" name="frequency" value="daily"> Daily</label>
+      ${second}
+    </fieldset>
+  </form></body></html>`;
+}
+
 const FORM_WIZARD = `<!doctype html>
 <html><head><title>Application wizard</title></head><body>
   <form id="application" action="/wizard-step-2" method="get">
@@ -346,6 +402,21 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/slow-choice-widgets') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(SLOW_CHOICE_WIDGETS);
+      return;
+    }
+    if (path === '/grouped-controls') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(GROUPED_CONTROLS);
+      return;
+    }
+    if (path === '/changing-group') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(changingGroupForm());
+      return;
+    }
+    if (path === '/changing-group-count') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(changingGroupCountForm());
       return;
     }
     if (path === '/embedded-form') {

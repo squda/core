@@ -111,6 +111,12 @@ export const LocatorCandidateSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
+/** How many controls a field locator is supposed to address. */
+export const LocatorCardinalitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('single') }),
+  z.object({ kind: z.literal('group'), count: z.number().int().min(2) }),
+]);
+
 /**
  * A boundary crossed on the way from the page document to a control.
  *
@@ -135,6 +141,8 @@ export const FieldScopeSchema = z.object({
 
 export const FieldLocatorSchema = z.object({
   scopes: z.array(FieldScopeSchema),
+  /** A field is normally one element; native radio/checkbox groups are exact sets. */
+  cardinality: LocatorCardinalitySchema,
   /** Deprecated compatibility selector. New consumers replay `preferred`. */
   selector: z.string().min(1),
   candidates: z.array(LocatorCandidateSchema).optional(),
@@ -292,6 +300,7 @@ export type LabelSource = z.infer<typeof LabelSourceSchema>;
 export type FieldOption = z.infer<typeof FieldOptionSchema>;
 export type FieldInteraction = z.infer<typeof FieldInteractionSchema>;
 export type LocatorCandidate = z.infer<typeof LocatorCandidateSchema>;
+export type LocatorCardinality = z.infer<typeof LocatorCardinalitySchema>;
 export type FieldScope = z.infer<typeof FieldScopeSchema>;
 export type FieldLocator = z.infer<typeof FieldLocatorSchema>;
 export type Field = z.infer<typeof FieldSchema>;

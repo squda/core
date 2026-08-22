@@ -125,6 +125,79 @@ describe('GET /form-spec against a live browser document', () => {
     expect(Date.now() - startedAt).toBeLessThan(3_000);
   });
 
+  it('verifies checkbox groups and scopes duplicate radio names to their forms', async () => {
+    const spec = await inspect('/grouped-controls');
+    const fields = spec.forms.flatMap((form) => form.fields);
+    const channels = fields.find((field) => field.name === 'channel');
+    const slots = fields.filter((field) => field.name === 'slot');
+    const independentCheckboxes = fields.filter((field) => field.name === 'consent');
+
+    expect(channels?.locator).toMatchObject({
+      cardinality: { kind: 'group', count: 2 },
+      preferred: { kind: 'css', selector: '[name="channel"]', source: 'name' },
+      verification: 'fresh-load',
+    });
+    expect(slots).toHaveLength(2);
+    expect(slots.map((field) => field.locator?.preferred)).toEqual([
+      { kind: 'css', selector: '#morning [name="slot"]', source: 'path' },
+      { kind: 'css', selector: '#evening [name="slot"]', source: 'path' },
+    ]);
+    expect(slots.every((field) => field.locator?.verification === 'fresh-load')).toBe(true);
+    expect(independentCheckboxes).toHaveLength(2);
+    expect(
+      independentCheckboxes.map((field) => ({
+        interaction: field.interaction,
+        cardinality: field.locator?.cardinality,
+        verification: field.locator?.verification,
+      })),
+    ).toEqual([
+      {
+        interaction: { kind: 'toggle' },
+        cardinality: { kind: 'single' },
+        verification: 'fresh-load',
+      },
+      {
+        interaction: { kind: 'toggle' },
+        cardinality: { kind: 'single' },
+        verification: 'fresh-load',
+      },
+    ]);
+  });
+
+  it('does not verify a group whose submitted values change on a fresh load', async () => {
+    const spec = await inspect('/changing-group');
+    const field = spec.forms.flatMap((form) => form.fields)[0];
+
+    expect(field?.options.map((option) => option.value)).toEqual(['yes', 'no']);
+    expect(field?.locator).toMatchObject({
+      cardinality: { kind: 'group', count: 2 },
+      verification: 'snapshot-only',
+    });
+    expect(spec.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'locator-not-replayable',
+        message: expect.stringContaining('Delivery timing'),
+      }),
+    );
+  });
+
+  it('does not verify a group whose member count changes on a fresh load', async () => {
+    const spec = await inspect('/changing-group-count');
+    const field = spec.forms.flatMap((form) => form.fields)[0];
+
+    expect(field?.options).toHaveLength(2);
+    expect(field?.locator).toMatchObject({
+      cardinality: { kind: 'group', count: 2 },
+      verification: 'snapshot-only',
+    });
+    expect(spec.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'locator-not-replayable',
+        message: expect.stringContaining('Digest frequency'),
+      }),
+    );
+  });
+
   it('reports a closed shadow root while preserving its fields for inspection', async () => {
     const spec = await inspect('/live-forms');
     const field = spec.forms
@@ -177,8 +250,15 @@ describe('GET /form-spec against a live browser document', () => {
   it('collects fields across wizard steps without submitting the form', async () => {
     const spec = await inspect('/wizard');
     const fields = spec.forms.flatMap((form) => form.fields);
+    const working = fields.find((field) => field.name === 'working');
 
     expect(fields.find((field) => field.id === 'wizard-email')).toMatchObject({ stepIndex: 0 });
+    expect(working).toMatchObject({
+      locator: {
+        verification: 'fresh-load',
+        preferred: { kind: 'css', selector: '[name="working"]', source: 'name' },
+      },
+    });
     expect(fields.find((field) => field.id === 'years')).toMatchObject({
       stepIndex: 1,
       locator: { verification: 'fresh-load' },
@@ -189,6 +269,12 @@ describe('GET /form-spec against a live browser document', () => {
     expect(fields.map((field) => field.id)).not.toContain('THE INSPECTOR SUBMITTED THE FORM');
     expect(spec.warnings).toContainEqual(
       expect.objectContaining({ code: 'branch-not-exhaustive' }),
+    );
+    expect(spec.warnings).not.toContainEqual(
+      expect.objectContaining({
+        code: 'locator-not-replayable',
+        message: expect.stringContaining('Are you currently working?'),
+      }),
     );
   });
 

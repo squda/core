@@ -248,6 +248,7 @@ async function collectStep(
             ...enriched,
             locator: {
               scopes,
+              cardinality: locatorCardinalityFor(enriched),
               selector: enriched.selector,
               candidates,
               preferred: candidates[0] ?? null,
@@ -281,6 +282,16 @@ async function collectStep(
 }
 
 type LocatorRoot = Page | Frame | FrameLocator | Locator;
+
+function locatorCardinalityFor(field: Field): NonNullable<Field['locator']>['cardinality'] {
+  return (field.type === 'radio' || field.type === 'checkbox') && field.options.length > 1
+    ? { kind: 'group', count: field.options.length }
+    : { kind: 'single' };
+}
+
+function cardinalityOf(field: Field): NonNullable<Field['locator']>['cardinality'] {
+  return field.locator?.cardinality ?? locatorCardinalityFor(field);
+}
 
 async function rootForScopes(
   root: LocatorRoot,
@@ -497,14 +508,18 @@ async function candidatesForField(
   const root = await rootForScopes(frame, scopes);
   if (!root) return [];
   const control = root.locator(field.selector);
-  if ((await control.count()) !== 1) return [];
+  const cardinality = cardinalityOf(field);
+  const expectedCount = cardinality.kind === 'group' ? cardinality.count : 1;
+  const isGroup = cardinality.kind === 'group';
+  if ((await control.count()) !== expectedCount) return [];
+  const representative = control.first();
 
   const candidates: LocatorCandidate[] = [];
-  const name = await control.getAttribute('name');
-  const testId = await control.getAttribute('data-testid');
-  const ariaLabel = await control.getAttribute('aria-label');
-  const id = await control.getAttribute('id');
-  const positional = await control.evaluate((element) => {
+  const name = await representative.getAttribute('name');
+  const testId = await representative.getAttribute('data-testid');
+  const ariaLabel = await representative.getAttribute('aria-label');
+  const id = await representative.getAttribute('id');
+  const positional = await representative.evaluate((element) => {
     const parts: string[] = [];
     let current: Element | null = element;
     while (current) {
@@ -529,33 +544,42 @@ async function candidatesForField(
       selector: `[name="${escapeCssAttribute(name)}"]`,
       source: 'name',
     });
-  if (testId)
+  if (isGroup) {
+    candidates.push({ kind: 'css', selector: field.selector, source: 'path' });
+  }
+  if (!isGroup && testId)
     candidates.push({
       kind: 'css',
       selector: `[data-testid="${escapeCssAttribute(testId)}"]`,
       source: 'test-id',
     });
-  if (ariaLabel)
+  if (!isGroup && ariaLabel)
     candidates.push({
       kind: 'css',
       selector: `[aria-label="${escapeCssAttribute(ariaLabel)}"]`,
       source: 'aria-label',
     });
 
-  const role = await roleOf(control, field);
-  if (role && field.label && field.labelSource && DIRECT_LABEL_SOURCES.has(field.labelSource)) {
+  const role = await roleOf(representative, field);
+  if (
+    !isGroup &&
+    role &&
+    field.label &&
+    field.labelSource &&
+    DIRECT_LABEL_SOURCES.has(field.labelSource)
+  ) {
     candidates.push({ kind: 'role-name', role, name: field.label });
   }
-  if (id && isPlausiblyStableId(id)) {
+  if (!isGroup && id && isPlausiblyStableId(id)) {
     candidates.push({ kind: 'css', selector: `#${escapeCssIdentifier(id)}`, source: 'id' });
   }
-  candidates.push({ kind: 'css', selector: positional, source: 'path' });
+  if (!isGroup) candidates.push({ kind: 'css', selector: positional, source: 'path' });
 
   const unique: LocatorCandidate[] = [];
   for (const candidate of candidates) {
     if (unique.some((existing) => JSON.stringify(existing) === JSON.stringify(candidate))) continue;
     const locator = locatorForCandidate(root, candidate);
-    if ((await locator.count()) === 1) unique.push(candidate);
+    if ((await locator.count()) === expectedCount) unique.push(candidate);
   }
   return unique;
 }
@@ -651,7 +675,7 @@ async function verifyFieldLocator(
   if (!preferred) {
     warnings.push({
       code: 'locator-not-replayable',
-      message: `No locator candidate replayed uniquely for ${field.label ?? field.name ?? field.id ?? 'an unnamed field'}.`,
+      message: `No locator candidate replayed with the expected cardinality and fingerprint for ${field.label ?? field.name ?? field.id ?? 'an unnamed field'}.`,
     });
     return;
   }
@@ -683,63 +707,103 @@ async function candidateMatchesField(
   field: Field,
 ): Promise<boolean> {
   const locator = locatorForCandidate(root, candidate);
-  if ((await locator.count()) !== 1) return false;
+  const cardinality = cardinalityOf(field);
+  const expectedCount = cardinality.kind === 'group' ? cardinality.count : 1;
+  const isGroup = cardinality.kind === 'group';
+  if ((await locator.count()) !== expectedCount) return false;
 
-  const observed = await locator.evaluate((element) => {
-    const tag = element.tagName.toLowerCase();
-    const role = (element.getAttribute('role') ?? '').toLowerCase();
-    const rawType = (element.getAttribute('type') ?? 'text').toLowerCase();
-    const inputTypes = new Set([
-      'text',
-      'email',
-      'tel',
-      'url',
-      'number',
-      'password',
-      'date',
-      'time',
-      'datetime-local',
-      'month',
-      'week',
-      'search',
-      'color',
-      'range',
-      'checkbox',
-      'radio',
-      'file',
-      'hidden',
-    ]);
-    const type =
-      tag === 'select'
-        ? 'select'
-        : tag === 'textarea'
-          ? 'textarea'
-          : tag === 'input'
-            ? inputTypes.has(rawType)
-              ? rawType
-              : 'text'
-            : 'custom';
+  const observed = await locator.evaluateAll((elements, group) => {
+    const members = elements.map((element) => {
+      const tag = element.tagName.toLowerCase();
+      const role = (element.getAttribute('role') ?? '').toLowerCase();
+      const rawType = (element.getAttribute('type') ?? 'text').toLowerCase();
+      const inputTypes = new Set([
+        'text',
+        'email',
+        'tel',
+        'url',
+        'number',
+        'password',
+        'date',
+        'time',
+        'datetime-local',
+        'month',
+        'week',
+        'search',
+        'color',
+        'range',
+        'checkbox',
+        'radio',
+        'file',
+        'hidden',
+      ]);
+      const type =
+        tag === 'select'
+          ? 'select'
+          : tag === 'textarea'
+            ? 'textarea'
+            : tag === 'input'
+              ? inputTypes.has(rawType)
+                ? rawType
+                : 'text'
+              : 'custom';
 
-    let interactionKind: 'type' | 'choose' | 'toggle' | 'upload' | 'none';
-    if (role === 'combobox' || role === 'listbox' || type === 'select' || type === 'radio') {
-      interactionKind = 'choose';
-    } else if (type === 'checkbox') {
-      const name = element.getAttribute('name');
-      const rootNode = element.getRootNode() as Document | ShadowRoot;
-      const peers = name
-        ? rootNode.querySelectorAll(`input[type="checkbox"][name="${CSS.escape(name)}"]`).length
-        : 1;
-      interactionKind = peers > 1 ? 'choose' : 'toggle';
-    } else if (type === 'file') {
-      interactionKind = 'upload';
-    } else if (type === 'hidden') {
-      interactionKind = 'none';
-    } else {
-      interactionKind = 'type';
+      let interactionKind: 'type' | 'choose' | 'toggle' | 'upload' | 'none';
+      if (role === 'combobox' || role === 'listbox' || type === 'select' || type === 'radio') {
+        interactionKind = 'choose';
+      } else if (type === 'checkbox') {
+        interactionKind = group ? 'choose' : 'toggle';
+      } else if (type === 'file') {
+        interactionKind = 'upload';
+      } else if (type === 'hidden') {
+        interactionKind = 'none';
+      } else {
+        interactionKind = 'type';
+      }
+      return {
+        type,
+        interactionKind,
+        name: element.getAttribute('name'),
+        value: element.getAttribute('value') ?? 'on',
+      };
+    });
+
+    let groupLabel = '';
+    const first = elements[0];
+    if (first && elements.length > 1) {
+      const fieldset = first.closest('fieldset');
+      if (fieldset && elements.every((element) => fieldset.contains(element))) {
+        groupLabel = fieldset.querySelector(':scope > legend')?.textContent?.trim() ?? '';
+      }
+
+      if (!groupLabel) {
+        const group = first.closest('[role="radiogroup"], [role="group"]');
+        if (group && elements.every((element) => group.contains(element))) {
+          groupLabel = group.getAttribute('aria-label')?.trim() ?? '';
+          if (!groupLabel) {
+            const rootNode = group.getRootNode() as Document | ShadowRoot;
+            groupLabel =
+              group
+                .getAttribute('aria-labelledby')
+                ?.split(/\s+/)
+                .filter(Boolean)
+                .map(
+                  (id) => rootNode.querySelector(`#${CSS.escape(id)}`)?.textContent?.trim() ?? '',
+                )
+                .filter(Boolean)
+                .join(' ') ?? '';
+          }
+        }
+      }
     }
-    return { type, interactionKind };
-  });
-  if (observed.type !== field.type || observed.interactionKind !== field.interaction.kind) {
+
+    return { members, groupLabel };
+  }, isGroup);
+  if (
+    observed.members.some(
+      (member) => member.type !== field.type || member.interactionKind !== field.interaction.kind,
+    )
+  ) {
     return false;
   }
 
@@ -754,10 +818,21 @@ async function candidateMatchesField(
     candidate.kind === 'role-name' || (candidate.kind === 'css' && candidate.source !== 'path');
   if (!hasDurableCandidate && !field.name && !hasDirectLabel) return false;
 
-  const actualName = await locator.getAttribute('name');
-  if (field.name && actualName !== field.name) return false;
+  if (field.name && observed.members.some((member) => member.name !== field.name)) return false;
 
-  if (field.label && field.labelSource && DIRECT_LABEL_SOURCES.has(field.labelSource)) {
+  if (isGroup) {
+    const expectedValues = field.options.map((option) => option.value).sort();
+    const observedValues = observed.members.map((member) => member.value).sort();
+    if (JSON.stringify(observedValues) !== JSON.stringify(expectedValues)) return false;
+    if (
+      hasDirectLabel &&
+      observed.groupLabel.replace(/\s+/g, ' ').trim() !== field.label?.replace(/\s+/g, ' ').trim()
+    ) {
+      return false;
+    }
+  }
+
+  if (!isGroup && field.label && field.labelSource && DIRECT_LABEL_SOURCES.has(field.labelSource)) {
     const accessibleName = await locator.evaluate((element) => {
       const ariaLabel = element.getAttribute('aria-label')?.trim();
       if (ariaLabel) return ariaLabel;
