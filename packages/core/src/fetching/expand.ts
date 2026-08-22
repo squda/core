@@ -160,7 +160,7 @@ export async function expandDisclosures(
  * again on every pass.
  */
 const CANDIDATE_SELECTOR = [
-  '[aria-expanded="false"]:not([data-scrape-expanded])',
+  '[aria-expanded="false"]:not([role="combobox"]):not([role="listbox"]):not([data-scrape-expanded])',
   '[role="tab"][aria-selected="false"]:not([data-scrape-expanded])',
 ]
   .map((selector) => `${selector}:visible`)

@@ -182,17 +182,161 @@ const LIVE_FORMS = `<!doctype html>
   <section id="account-shell"></section>
   <section id="private-shell"></section>
   <section id="generated-host-a83cf87f"></section>
+  <section class="anonymous-shell"></section>
   <iframe id="embedded" src="/embedded-form"></iframe>
   <iframe id="generated-frame-a83cf87f" name="address-frame" src="/generated-frame-form"></iframe>
   <script>
     const root = document.getElementById('account-shell').attachShadow({ mode: 'open' });
-    root.innerHTML = '<form id="account"><label for="shadow-email">Work email</label><input id="shadow-email" type="email" autocomplete="email"></form><iframe id="shadow-frame" src="/shadow-frame-form"></iframe>';
+    root.innerHTML = '<form id="account"><label for="shadow-email">Work email</label><input id="shadow-email" type="email" autocomplete="email"></form><section><span>Anonymous shadow field</span><input></section><iframe id="shadow-frame" src="/shadow-frame-form"></iframe>';
     const closed = document.getElementById('private-shell').attachShadow({ mode: 'closed' });
     closed.innerHTML = '<label for="private-code">Private code</label><input id="private-code">';
     const generated = document.getElementById('generated-host-a83cf87f').attachShadow({ mode: 'open' });
     generated.innerHTML = '<label for="generated-field">Generated host field</label><input id="generated-field">';
+    const anonymous = document.querySelector('.anonymous-shell').attachShadow({ mode: 'open' });
+    anonymous.innerHTML = '<label for="anonymous-host-field">Anonymous host field</label><input id="anonymous-host-field">';
   </script>
 </body></html>`;
+
+let generatedFormId = 112_599;
+
+function generatedIdForm(): string {
+  generatedFormId += 1;
+  const id = `select-input-${generatedFormId}`;
+  return `<!doctype html><html><body>
+    <main><section><label for="${id}">Account type</label><input id="${id}"></section></main>
+  </body></html>`;
+}
+
+const CHOICE_WIDGETS = `<!doctype html><html><body>
+  <label id="colour-label">Favourite colour</label>
+  <div class="choice-control">
+    <span>Ocean</span>
+    <input id="colour-picker" role="combobox" aria-labelledby="colour-label"
+           aria-expanded="false" aria-controls="colour-options" value="">
+  </div>
+  <label id="size-label">Size</label>
+  <div id="size-picker" role="listbox" aria-labelledby="size-label">
+    <div role="option" data-value="small" aria-selected="true">Small</div>
+    <div role="option" data-value="large">Large</div>
+  </div>
+  <script>
+    const picker = document.getElementById('colour-picker');
+    const close = () => {
+      picker.setAttribute('aria-expanded', 'false');
+      document.getElementById('colour-options')?.remove();
+    };
+    picker.addEventListener('click', () => {
+      picker.setAttribute('aria-expanded', 'true');
+      const listbox = document.createElement('div');
+      listbox.id = 'colour-options';
+      listbox.setAttribute('role', 'listbox');
+      listbox.setAttribute('aria-setsize', '3');
+      listbox.innerHTML = '<div role="option" data-value="ocean" aria-selected="true">Ocean</div><div role="option" data-value="red">Red</div><div role="option" data-value="blue">Blue</div>';
+      document.body.append(listbox);
+    });
+    picker.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') close();
+    });
+    const sizePicker = document.getElementById('size-picker');
+    const mutateSize = () => {
+      sizePicker.querySelector('[data-value="small"]').setAttribute('aria-selected', 'false');
+      sizePicker.querySelector('[data-value="large"]').setAttribute('aria-selected', 'true');
+    };
+    sizePicker.addEventListener('click', mutateSize);
+    sizePicker.addEventListener('keydown', mutateSize);
+  </script>
+</body></html>`;
+
+const SLOW_CHOICE_WIDGETS = `<!doctype html><html><body>
+  ${Array.from(
+    { length: 8 },
+    (_value, index) =>
+      `<input role="combobox" aria-label="Choice ${index}" aria-expanded="false" aria-controls="missing-${index}">`,
+  ).join('')}
+</body></html>`;
+
+const GROUPED_CONTROLS = `<!doctype html><html><body>
+  <form id="notifications">
+    <fieldset><legend>Notification channels</legend>
+      <label><input type="checkbox" name="channel" value="email"> Email</label>
+      <label><input type="checkbox" name="channel" value="sms"> SMS</label>
+    </fieldset>
+  </form>
+  <form>
+    <fieldset data-testid="morning-slot-group"><legend>Morning slot</legend>
+      <label><input type="radio" name="slot" value="early"> Early</label>
+      <label><input type="radio" name="slot" value="noon"> Noon</label>
+    </fieldset>
+  </form>
+  <form id="evening">
+    <fieldset><legend>Evening slot</legend>
+      <label><input type="radio" name="slot" value="late"> Late</label>
+      <label><input type="radio" name="slot" value="night"> Night</label>
+    </fieldset>
+  </form>
+  <fieldset id="123.choice"><legend>Orphan slot</legend>
+    <label><input type="radio" name="slot" value="one"> One</label>
+    <label><input type="radio" name="slot" value="two"> Two</label>
+    <label><input type="radio" name="slot" value="three"> Three</label>
+  </fieldset>
+  <fieldset role="radiogroup" aria-label="Second orphan slot"><legend>Second orphan slot</legend>
+    <label><input type="radio" name="slot" value="four"> Four</label>
+    <label><input type="radio" name="slot" value="five"> Five</label>
+    <label><input type="radio" name="slot" value="six"> Six</label>
+  </fieldset>
+  <form id="terms-a">
+    <label><input type="checkbox" name="consent" value="first"> Accept first policy</label>
+  </form>
+  <form id="terms-b">
+    <label><input type="checkbox" name="consent" value="second"> Accept second policy</label>
+  </form>
+</body></html>`;
+
+const MANY_IFRAMES = `<!doctype html><html><body>
+  ${Array.from(
+    { length: 17 },
+    (_value, index) => `<iframe name="form-${index}" src="/embedded-form?index=${index}"></iframe>`,
+  ).join('')}
+</body></html>`;
+
+let changingGroupLoads = 0;
+
+function changingGroupForm(): string {
+  changingGroupLoads += 1;
+  const secondValue = changingGroupLoads % 2 === 1 ? 'no' : 'later';
+  return `<!doctype html><html><body><form id="delivery">
+    <fieldset><legend>Delivery timing</legend>
+      <label><input type="radio" name="timing" value="yes"> Yes</label>
+      <label><input type="radio" name="timing" value="${secondValue}"> No</label>
+    </fieldset>
+  </form></body></html>`;
+}
+
+let changingGroupCountLoads = 0;
+
+function changingGroupCountForm(): string {
+  changingGroupCountLoads += 1;
+  const second =
+    changingGroupCountLoads % 2 === 1
+      ? '<label><input type="radio" name="frequency" value="weekly"> Weekly</label>'
+      : '';
+  return `<!doctype html><html><body><form id="digest">
+    <fieldset><legend>Digest frequency</legend>
+      <label><input type="radio" name="frequency" value="daily"> Daily</label>
+      ${second}
+    </fieldset>
+  </form></body></html>`;
+}
+
+let changingFrameScopeLoads = 0;
+
+function changingFrameScopeForm(): string {
+  changingFrameScopeLoads += 1;
+  const version = changingFrameScopeLoads % 2 === 1 ? 'original' : 'changed';
+  return `<!doctype html><html><body>
+    <iframe name="${version}-frame" src="/embedded-form?scope=${version}"></iframe>
+  </body></html>`;
+}
 
 const FORM_WIZARD = `<!doctype html>
 <html><head><title>Application wizard</title></head><body>
@@ -270,6 +414,46 @@ export async function startTestServer(): Promise<TestServer> {
     if (path === '/live-forms') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(LIVE_FORMS);
+      return;
+    }
+    if (path === '/generated-id-form') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(generatedIdForm());
+      return;
+    }
+    if (path === '/choice-widgets') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(CHOICE_WIDGETS);
+      return;
+    }
+    if (path === '/slow-choice-widgets') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(SLOW_CHOICE_WIDGETS);
+      return;
+    }
+    if (path === '/grouped-controls') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(GROUPED_CONTROLS);
+      return;
+    }
+    if (path === '/many-iframes') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(MANY_IFRAMES);
+      return;
+    }
+    if (path === '/changing-group') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(changingGroupForm());
+      return;
+    }
+    if (path === '/changing-group-count') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(changingGroupCountForm());
+      return;
+    }
+    if (path === '/changing-frame-scope') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(changingFrameScopeForm());
       return;
     }
     if (path === '/embedded-form') {

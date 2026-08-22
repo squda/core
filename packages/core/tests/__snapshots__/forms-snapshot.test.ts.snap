@@ -119,7 +119,7 @@ FORM #content > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)
       selector: #response
       from: nothing  name=response  id=response
   · Check what student finance you can apply for depending on your nationality and residency 1. When does your course start?  [radio]
-      selector: #content > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > form:nth-of-type(1) [name="response"]
+      selector: #when-does-your-course-start > fieldset:nth-of-type(1) [name="response"]
       from: label-wrapping  name=response  id=radio-755923b6-0
       options:
         - On or after 1 January 2027=on-or-after-1-january-2027
@@ -276,9 +276,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "given-name",
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "first_name",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "First Name*",
         "labelSource": "label-for",
         "max": null,
@@ -300,9 +304,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "family-name",
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "last_name",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "Last Name*",
         "labelSource": "label-for",
         "max": null,
@@ -324,9 +332,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "email",
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "email",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "Email*",
         "labelSource": "label-for",
         "max": null,
@@ -348,9 +360,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "country",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Country",
         "labelSource": "label-for",
         "max": null,
@@ -372,9 +390,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "iti-0__search-input",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Search",
         "labelSource": "aria-label",
         "max": null,
@@ -396,9 +420,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "phone",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "Phone",
         "labelSource": "label-for",
         "max": null,
@@ -420,9 +448,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": ".pdf,.doc,.docx,.txt,.rtf",
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "resume",
+        "interaction": {
+          "kind": "upload",
+        },
         "label": "Attach",
         "labelSource": "label-for",
         "max": null,
@@ -444,9 +476,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": ".pdf,.doc,.docx,.txt,.rtf",
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "cover_letter",
+        "interaction": {
+          "kind": "upload",
+        },
         "label": "Attach",
         "labelSource": "label-for",
         "max": null,
@@ -468,9 +504,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "question_36101205002",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "LinkedIn Profile",
         "labelSource": "label-for",
         "max": null,
@@ -492,9 +532,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "question_36101206002",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "What's the name you'd prefer us to use throughout the interview process?",
         "labelSource": "label-for",
         "max": null,
@@ -516,9 +560,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "question_36101207002",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?*",
         "labelSource": "label-for",
         "max": null,
@@ -540,9 +590,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": null,
+        "interaction": {
+          "kind": "type",
+        },
         "label": null,
         "labelSource": null,
         "max": null,
@@ -564,9 +618,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "question_36101208002",
+        "interaction": {
+          "kind": "type",
+        },
         "label": "It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.",
         "labelSource": "label-for",
         "max": null,
@@ -588,9 +646,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "question_36101209002",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Will you now or in the future require sponsorship for a visa to remain in your current location?*",
         "labelSource": "label-for",
         "max": null,
@@ -612,9 +676,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": null,
+        "interaction": {
+          "kind": "type",
+        },
         "label": null,
         "labelSource": null,
         "max": null,
@@ -636,9 +704,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "question_36101210002",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Have you previously worked at or consulted for GitLab?*",
         "labelSource": "label-for",
         "max": null,
@@ -660,9 +734,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": null,
+        "interaction": {
+          "kind": "type",
+        },
         "label": "Have you previously worked at or consulted for GitLab?*",
         "labelSource": "nearby-text",
         "max": null,
@@ -684,9 +762,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "question_36101211002",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "What is your current country of residence?*",
         "labelSource": "label-for",
         "max": null,
@@ -708,9 +792,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": null,
+        "interaction": {
+          "kind": "type",
+        },
         "label": "What is your current country of residence?*",
         "labelSource": "nearby-text",
         "max": null,
@@ -732,9 +820,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "gender",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Gender",
         "labelSource": "label-for",
         "max": null,
@@ -756,9 +850,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "hispanic_ethnicity",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Are you Hispanic/Latino?",
         "labelSource": "label-for",
         "max": null,
@@ -780,9 +880,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "veteran_status",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Veteran Status",
         "labelSource": "label-for",
         "max": null,
@@ -804,9 +910,15 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": "off",
+        "currentValues": [],
         "description": "Select...",
         "disabled": false,
         "id": "disability_status",
+        "interaction": {
+          "kind": "choose",
+          "mode": "single",
+          "optionsStatus": "dynamic",
+        },
         "label": "Disability Status",
         "labelSource": "label-for",
         "max": null,
@@ -837,9 +949,13 @@ exports[`the FormSpec of every captured form > form-job-application, in full 1`]
       {
         "accept": null,
         "autocomplete": null,
+        "currentValues": [],
         "description": null,
         "disabled": false,
         "id": "g-recaptcha-response-100000",
+        "interaction": {
+          "kind": "type",
+        },
         "label": null,
         "labelSource": null,
         "max": null,

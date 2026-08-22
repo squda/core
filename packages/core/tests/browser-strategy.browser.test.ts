@@ -115,16 +115,8 @@ describe('the failure modes real pages have', () => {
     }
   });
 
-  /**
-   * The fallback used to get a full fresh timeout of its own, so `timeoutMs`
-   * meant "up to twice this". Nobody notices until something upstream enforces
-   * the number you passed: on Lambda a 30s budget produced a 60.3s invocation
-   * against a 60s limit, which reads as a hung page and is arithmetic.
-   *
-   * A polling page is the case that takes both attempts, so it is the one that
-   * has to stay inside the budget.
-   */
-  it('spends one budget across both navigation attempts, not two', async () => {
+  /** A polling page exercises the bounded readiness fallback after navigation. */
+  it('spends one budget across navigation and readiness', async () => {
     const strategy = new BrowserStrategy();
     try {
       const started = Date.now();

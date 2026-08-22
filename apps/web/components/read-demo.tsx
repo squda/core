@@ -220,7 +220,10 @@ function Result({ status }: { status: Extract<Status, { state: 'read' }> }) {
   const everyField = spec.forms.flatMap((form) => form.fields);
   const fields = everyField.filter(isFillable);
   const counts = tally(fields);
-  const nameable = fields.length - counts.unknown;
+  const named = counts.named;
+  const replayVerified = fields.filter(
+    (field) => field.locator?.verification === 'fresh-load',
+  ).length;
 
   return (
     <div className="animate-[rise_0.3s_ease-out]">
@@ -252,7 +255,13 @@ function Result({ status }: { status: Extract<Status, { state: 'read' }> }) {
               </p>
             </div>
           ) : (
-            <FieldsPanel fields={fields} spec={spec} nameable={nameable} counts={counts} />
+            <FieldsPanel
+              fields={fields}
+              spec={spec}
+              named={named}
+              replayVerified={replayVerified}
+              counts={counts}
+            />
           )}
         </TabsContent>
 
@@ -267,12 +276,14 @@ function Result({ status }: { status: Extract<Status, { state: 'read' }> }) {
 function FieldsPanel({
   fields,
   spec,
-  nameable,
+  named,
+  replayVerified,
   counts,
 }: {
   fields: Field[];
   spec: FormSpec;
-  nameable: number;
+  named: number;
+  replayVerified: number;
   counts: Record<string, number>;
 }) {
   const [highlight, setHighlight] = useState(-1);
@@ -282,15 +293,17 @@ function FieldsPanel({
       <div className="border-border border-b p-6">
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="text-3xl font-semibold tracking-tight tabular-nums">
-            {nameable} of {fields.length}
+            {named} of {fields.length}
           </span>
           <span className="text-muted-foreground max-w-prose text-sm">
-            boxes a person fills that we can name.{' '}
-            {fields.length - nameable === 0
-              ? 'None are unnamed.'
-              : `${fields.length - nameable} we cannot.`}
+            boxes are named explicitly by the page. {counts.inferred} inferred, {counts.guessed}{' '}
+            guessed, and {counts.unknown} unnamed.
           </span>
         </div>
+
+        <p className="text-muted-foreground mt-2 font-mono text-xs">
+          locator replay: {replayVerified}/{fields.length} verified on a fresh load
+        </p>
 
         {/* One mark per field, in page order — the shape of the whole form at a glance. */}
         <div className="mt-4 flex flex-wrap gap-[3px]">
@@ -326,8 +339,8 @@ function FieldsPanel({
       </ul>
 
       <p className="border-border text-muted-foreground border-t p-4 text-sm">
-        {spec.forms.length === 1 ? '1 form' : `${spec.forms.length} forms`} on this page. Across the
-        six pages we test on, 18 of 69 boxes had no label at all, and not one used a native select.
+        {spec.forms.length === 1 ? '1 form' : `${spec.forms.length} forms`} on this page. Naming
+        confidence and fresh-load locator verification are reported independently.
       </p>
     </div>
   );

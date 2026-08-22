@@ -1,38 +1,30 @@
-import type { Frame, Page } from 'playwright';
+import type { Frame, FrameLocator, Locator, Page } from 'playwright';
 import {
   FormSpecSchema,
+  type Field,
   type FieldScope,
   type Form,
   type FormInspectionWarning,
   type FormSpec,
+  type LabelSource,
+  type LocatorCandidate,
+  type LocatorCandidateFailure,
 } from '@untitled/schema';
-import { extractForms, isStableId } from '../core/forms.js';
+import { extractForms, IMPLAUSIBLE_ID_PATTERN, isPlausiblyStableId } from '../core/forms.js';
 import type { HtmlDocument } from '../core/types.js';
+import { waitForDomQuiet } from './dom-readiness.js';
 
 interface CapturedScope {
   html: string;
   scopes: FieldScope[];
+  selectorRoot: 'document' | 'fragment';
 }
 
 // Strings on purpose: tsx/esbuild names nested functions with a Node-side
 // helper. Passing the transformed function to Playwright made that helper leak
 // into the page and fail only in production. Source strings execute exactly as
 // written in Chromium under every Node transform.
-const SELECTOR_FOR_SCRIPT = String.raw`(element, root) => {
-    const idIsStable = element.id &&
-      !/[:«»\s]/.test(element.id) &&
-      !/^[0-9a-f]{16,}$/i.test(element.id) &&
-      !/[-_][0-9a-f]{8,}$/i.test(element.id) &&
-      !/^(radix|headlessui|mui|mantine)-/i.test(element.id);
-    if (idIsStable) return '#' + CSS.escape(element.id);
-
-    const name = element.getAttribute('name');
-    if (name) {
-      const escaped = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const candidate = '[name="' + escaped + '"]';
-      if (root.querySelectorAll(candidate).length === 1) return candidate;
-    }
-
+const PATH_FOR_SCRIPT = String.raw`(element) => {
     const parts = [];
     let current = element;
     while (current) {
@@ -50,19 +42,67 @@ const SELECTOR_FOR_SCRIPT = String.raw`(element, root) => {
     return parts.join(' > ');
   }`;
 
+const CANDIDATES_FOR_SCRIPT = String.raw`(element, root) => {
+    const candidates = [];
+    const attribute = (name, source) => {
+      const value = element.getAttribute(name);
+      if (!value) return;
+      const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const selector = '[' + name + '="' + escaped + '"]';
+      if (root.querySelectorAll(selector).length === 1) {
+        candidates.push({ kind: 'css', selector, source });
+      }
+    };
+    attribute('name', 'name');
+    attribute('data-testid', 'test-id');
+    attribute('aria-label', 'aria-label');
+    const idIsStable = element.id &&
+      !new RegExp(${JSON.stringify(IMPLAUSIBLE_ID_PATTERN.source)}, 'i').test(element.id);
+    if (idIsStable) {
+      candidates.push({ kind: 'css', selector: '#' + CSS.escape(element.id), source: 'id' });
+    }
+    candidates.push({ kind: 'css', selector: (${PATH_FOR_SCRIPT})(element), source: 'path' });
+    return candidates;
+  }`;
+
+const SELECTOR_FOR_SCRIPT = String.raw`(element, root) => {
+    const idIsStable = element.id &&
+      !new RegExp(${JSON.stringify(IMPLAUSIBLE_ID_PATTERN.source)}, 'i').test(element.id);
+    if (idIsStable) return '#' + CSS.escape(element.id);
+
+    const name = element.getAttribute('name');
+    if (name) {
+      const escaped = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const candidate = '[name="' + escaped + '"]';
+      if (root.querySelectorAll(candidate).length === 1) return candidate;
+    }
+
+    return (${PATH_FOR_SCRIPT})(element);
+  }`;
+
 const CAPTURE_DOCUMENT_SCOPES_SCRIPT = String.raw`(() => {
   const selectorFor = ${SELECTOR_FOR_SCRIPT};
+  const candidatesFor = ${CANDIDATES_FOR_SCRIPT};
 
-  const result = [{ html: document.documentElement.outerHTML, scopes: [] }];
+  const result = [{ html: document.documentElement.outerHTML, scopes: [], selectorRoot: 'document' }];
   const visit = (root, scopes) => {
     for (const element of root.querySelectorAll('*')) {
       if (!element.shadowRoot) continue;
-      const nextScopes = scopes.concat([
-        { kind: 'shadow', selector: selectorFor(element, root) },
-      ]);
+      const nextScopes = scopes.concat([{
+        kind: 'shadow',
+        selector: selectorFor(element, root),
+        candidates: candidatesFor(element, root),
+        fingerprint: {
+          tag: element.tagName.toLowerCase(),
+          name: element.getAttribute('name'),
+          ariaLabel: element.getAttribute('aria-label'),
+          src: element.getAttribute('src'),
+        },
+      }]);
       result.push({
-        html: '<html><body>' + element.shadowRoot.innerHTML + '</body></html>',
+        html: element.shadowRoot.innerHTML,
         scopes: nextScopes,
+        selectorRoot: 'fragment',
       });
       visit(element.shadowRoot, nextScopes);
     }
@@ -77,6 +117,10 @@ export interface BrowserFormInspection {
   spec: FormSpec;
 }
 
+interface InspectionOptions {
+  deadline?: number;
+}
+
 /**
  * Read forms from the live DOM while Chromium still owns it.
  *
@@ -85,16 +129,35 @@ export interface BrowserFormInspection {
  * label resolution, grouping, sensitivity and selector rules remain in one
  * implementation.
  */
-export async function inspectFormsOnPage(page: Page, document: HtmlDocument): Promise<FormSpec> {
+export async function inspectFormsOnPage(
+  page: Page,
+  document: HtmlDocument,
+  options: InspectionOptions = {},
+): Promise<FormSpec> {
   const forms: Form[] = [];
   const warnings: FormInspectionWarning[] = [];
   const seenFields = new Set<string>();
   const maxSteps = 20;
+  const deadline = options.deadline ?? Number.POSITIVE_INFINITY;
   let followedWizardBranch = false;
 
   for (let stepIndex = 0; stepIndex < maxSteps; stepIndex += 1) {
-    const added = await collectStep(page, document, stepIndex, seenFields);
+    if (Date.now() >= deadline) {
+      warnings.push({
+        code: 'inspection-budget-exhausted',
+        message: 'Stopped form exploration because the request deadline was reached.',
+      });
+      break;
+    }
+    const added = await collectStep(page, document, stepIndex, seenFields, deadline);
     forms.push(...added);
+    if (Date.now() >= deadline) {
+      warnings.push({
+        code: 'inspection-budget-exhausted',
+        message: 'Stopped form exploration because the request deadline was reached.',
+      });
+      break;
+    }
 
     const next = await findNextControl(page);
     if (!next) break;
@@ -141,6 +204,8 @@ export async function inspectFormsOnPage(page: Page, document: HtmlDocument): Pr
     });
   }
 
+  await verifyLocatorsOnFreshLoad(page, document.finalUrl, forms, warnings, deadline);
+
   return FormSpecSchema.parse({
     url: document.url,
     fetchedAt: document.fetchedAt,
@@ -155,6 +220,7 @@ async function collectStep(
   document: HtmlDocument,
   stepIndex: number,
   seenFields: Set<string>,
+  deadline: number,
 ): Promise<Form[]> {
   const forms: Form[] = [];
 
@@ -165,25 +231,49 @@ async function collectStep(
     for (const scope of captured) {
       // Resolve relative form actions against the document that owns the
       // control, not the top page or the wizard's first URL.
-      const spec = extractForms({ ...document, finalUrl: frame.url(), html: scope.html });
+      const spec = extractForms(
+        { ...document, finalUrl: frame.url(), html: scope.html },
+        { selectorRoot: scope.selectorRoot },
+      );
       const scopes = [...frameScopes, ...scope.scopes];
 
       for (const form of spec.forms) {
-        const fields = form.fields
-          .map((field) => ({
-            ...field,
-            locator: { scopes, selector: field.selector },
+        const locatedFields: Field[] = [];
+        // Choice widgets are intentionally inspected one at a time. Opening a
+        // React Select normally closes whichever one was already open, so a
+        // Promise.all here makes every widget race for the page's one listbox.
+        for (const field of form.fields) {
+          const enriched = await enrichLiveField(frame, scope.scopes, field, deadline);
+          const discovery = await candidatesForField(frame, scope.scopes, enriched);
+          locatedFields.push({
+            ...enriched,
+            locator: {
+              scopes,
+              cardinality: locatorCardinalityFor(enriched),
+              selector: enriched.selector,
+              candidates: discovery.candidates,
+              candidateFailures: discovery.failures,
+              preferred: discovery.candidates[0] ?? null,
+              verification: 'snapshot-only' as const,
+              fingerprint: {
+                type: enriched.type,
+                interactionKind: enriched.interaction.kind,
+                name: enriched.name,
+                label: enriched.label,
+              },
+            },
             stepIndex,
-          }))
-          .filter((field) => {
-            // Wizards commonly reuse `name=answer` and the same CSS selector on
-            // every page. Same address plus different meaning is a new field;
-            // same address and same meaning is persistent chrome to dedupe.
-            const key = JSON.stringify([field.locator, field.type, field.name, field.label]);
-            if (seenFields.has(key)) return false;
-            seenFields.add(key);
-            return true;
           });
+        }
+        const fields = locatedFields.filter((field) => {
+          // Wizards commonly reuse `name=answer` and the same CSS selector on
+          // every page. Same address plus different meaning is a new field;
+          // same address and same meaning is persistent chrome to dedupe.
+          const key = JSON.stringify([field.locator, field.type, field.name, field.label]);
+          if (seenFields.has(key)) return false;
+          seenFields.add(key);
+          return true;
+        });
 
         if (fields.length > 0) forms.push({ ...form, stepIndex, fields });
       }
@@ -191,6 +281,715 @@ async function collectStep(
   }
 
   return forms;
+}
+
+type LocatorRoot = Page | Frame | FrameLocator | Locator;
+
+function locatorCardinalityFor(field: Field): NonNullable<Field['locator']>['cardinality'] {
+  return (field.type === 'radio' || field.type === 'checkbox') && field.options.length > 1
+    ? { kind: 'group', count: field.options.length }
+    : { kind: 'single' };
+}
+
+function cardinalityOf(field: Field): NonNullable<Field['locator']>['cardinality'] {
+  return field.locator?.cardinality ?? locatorCardinalityFor(field);
+}
+
+async function rootForScopes(
+  root: LocatorRoot,
+  scopes: FieldScope[],
+  recordSelection = false,
+  failures?: LocatorCandidateFailure[],
+): Promise<LocatorRoot | null> {
+  let current = root;
+  for (const scope of scopes) {
+    const candidate = await firstMatchingScopeCandidate(
+      current,
+      scope.candidates ?? [{ kind: 'css', selector: scope.selector, source: 'path' }],
+      scope.fingerprint,
+      recordSelection,
+      failures,
+    );
+    if (!candidate || candidate.kind !== 'css') return null;
+    if (recordSelection) {
+      scope.selector = candidate.selector;
+      scope.candidates = [
+        candidate,
+        ...(scope.candidates ?? []).filter(
+          (existing) => JSON.stringify(existing) !== JSON.stringify(candidate),
+        ),
+      ];
+    }
+    current =
+      scope.kind === 'frame'
+        ? current.frameLocator(candidate.selector)
+        : current.locator(candidate.selector);
+  }
+  return current;
+}
+
+async function firstMatchingScopeCandidate(
+  root: LocatorRoot,
+  candidates: LocatorCandidate[],
+  fingerprint: FieldScope['fingerprint'],
+  requireDurableIdentity: boolean,
+  failures?: LocatorCandidateFailure[],
+): Promise<LocatorCandidate | null> {
+  for (const candidate of candidates) {
+    if (candidate.kind !== 'css') continue;
+    if (
+      requireDurableIdentity &&
+      candidate.source === 'path' &&
+      !fingerprint?.name &&
+      !fingerprint?.ariaLabel &&
+      !fingerprint?.src
+    ) {
+      failures?.push({ candidate, reason: 'identity-unproven' });
+      continue;
+    }
+    const locator = root.locator(candidate.selector);
+    const count = await locator.count();
+    if (count !== 1) {
+      failures?.push({
+        candidate,
+        reason: 'cardinality-mismatch',
+        expected: '1',
+        actual: String(count),
+      });
+      continue;
+    }
+    if (fingerprint) {
+      const observed = await locator.evaluate((element) => ({
+        tag: element.tagName.toLowerCase(),
+        name: element.getAttribute('name'),
+        ariaLabel: element.getAttribute('aria-label'),
+        src: element.getAttribute('src'),
+      }));
+      if (
+        observed.tag !== fingerprint.tag ||
+        observed.name !== fingerprint.name ||
+        observed.ariaLabel !== fingerprint.ariaLabel ||
+        observed.src !== fingerprint.src
+      ) {
+        failures?.push({
+          candidate,
+          reason: 'scope-fingerprint-mismatch',
+          expected: JSON.stringify(fingerprint),
+          actual: JSON.stringify(observed),
+        });
+        continue;
+      }
+    }
+    return candidate;
+  }
+  return null;
+}
+
+async function enrichLiveField(
+  frame: Frame,
+  scopes: FieldScope[],
+  field: Field,
+  deadline: number,
+): Promise<Field> {
+  if (field.interaction.kind !== 'choose' || field.interaction.optionsStatus !== 'dynamic') {
+    return field;
+  }
+  if (Date.now() >= deadline) return field;
+
+  const root = await rootForScopes(frame, scopes);
+  if (!root) return field;
+  const control = root.locator(field.selector);
+  if ((await control.count()) !== 1) return field;
+
+  const currentValues = await currentValuesOf(control);
+  const role = (await control.getAttribute('role'))?.toLowerCase();
+  const isAlwaysOpenListbox = role === 'listbox';
+  let opened = false;
+  try {
+    if (!isAlwaysOpenListbox && (await control.getAttribute('aria-expanded')) !== 'true') {
+      await control.click({ timeout: Math.max(1, Math.min(500, deadline - Date.now())) });
+      opened = true;
+    }
+    await frame.page().waitForTimeout(Math.max(1, Math.min(50, deadline - Date.now())));
+
+    const controlled =
+      (await control.getAttribute('aria-controls')) ?? (await control.getAttribute('aria-owns'));
+    const localOptionRoot = controlled
+      ? root.locator(`#${escapeCssIdentifier(controlled)}`)
+      : control;
+    const optionRoot =
+      controlled && (await localOptionRoot.count()) !== 1
+        ? frame.locator(`#${escapeCssIdentifier(controlled)}`)
+        : localOptionRoot;
+    const options = optionRoot.locator('[role="option"]:visible');
+    await options
+      .first()
+      .waitFor({ state: 'visible', timeout: Math.max(1, Math.min(500, deadline - Date.now())) })
+      .catch(() => {});
+    const count = await options.count();
+    if (count === 0) return { ...field, currentValues };
+
+    const values = await Promise.all(
+      Array.from({ length: count }, async (_value, index) => {
+        const option = options.nth(index);
+        const label =
+          ((await option.innerText()).trim() || (await option.textContent())?.trim()) ?? '';
+        return {
+          value:
+            (await option.getAttribute('data-value')) ??
+            (await option.getAttribute('value')) ??
+            label,
+          label,
+          selected: (await option.getAttribute('aria-selected')) === 'true',
+        };
+      }),
+    );
+    const declaredTotal = await optionRoot
+      .evaluate((element) => {
+        const declarations = [
+          element.getAttribute('aria-setsize'),
+          ...[...element.querySelectorAll('[role="option"]')].map((option) =>
+            option.getAttribute('aria-setsize'),
+          ),
+        ]
+          .map(Number)
+          .filter((value) => Number.isFinite(value) && value >= 0);
+        return declarations.length > 0 ? Math.max(...declarations) : null;
+      })
+      .catch(() => null);
+    const optionsStatus =
+      declaredTotal === count
+        ? 'complete'
+        : declaredTotal && declaredTotal > count
+          ? 'partial'
+          : 'dynamic';
+
+    return {
+      ...field,
+      currentValues,
+      options: values,
+      interaction: {
+        ...field.interaction,
+        optionsStatus,
+      },
+    };
+  } catch {
+    return { ...field, currentValues };
+  } finally {
+    if (opened) await control.press('Escape').catch(() => {});
+  }
+}
+
+async function currentValuesOf(control: Locator): Promise<string[]> {
+  const explicit =
+    (await control.getAttribute('aria-valuetext')) ?? (await control.getAttribute('value'));
+  if (explicit) return [explicit];
+  const selected = control.locator('[aria-selected="true"]');
+  const selectedValues: string[] = [];
+  for (let index = 0; index < (await selected.count()); index += 1) {
+    const value = (await selected.nth(index).innerText()).trim();
+    if (value) selectedValues.push(value);
+  }
+  if (selectedValues.length > 0) return selectedValues;
+  const text = ((await control.innerText().catch(() => '')) || '').trim();
+  if (text) return [text];
+
+  // React Select puts role=combobox on an empty input while rendering the
+  // selected value as its sibling. Read a small enclosing control without
+  // letting labels, live announcements, or option popups become values.
+  return control.evaluate((element) => {
+    let container = element.parentElement;
+    for (let depth = 0; depth < 3 && container; depth += 1) {
+      const clone = container.cloneNode(true) as Element;
+      for (const excluded of clone.querySelectorAll(
+        'input, textarea, select, label, [role="listbox"], [role="option"], [role="log"], [role="status"], [aria-live]',
+      )) {
+        excluded.remove();
+      }
+      const candidate = (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (candidate && candidate.length <= 80) return [candidate];
+      container = container.parentElement;
+    }
+    return [];
+  });
+}
+
+const DIRECT_LABEL_SOURCES = new Set<LabelSource>([
+  'label-for',
+  'label-wrapping',
+  'aria-label',
+  'aria-labelledby',
+]);
+
+async function candidatesForField(
+  frame: Frame,
+  scopes: FieldScope[],
+  field: Field,
+): Promise<{ candidates: LocatorCandidate[]; failures: LocatorCandidateFailure[] }> {
+  const root = await rootForScopes(frame, scopes);
+  if (!root) return { candidates: [], failures: [] };
+  const control = root.locator(field.selector);
+  const cardinality = cardinalityOf(field);
+  const expectedCount = cardinality.kind === 'group' ? cardinality.count : 1;
+  const isGroup = cardinality.kind === 'group';
+  const controlCount = await control.count();
+  if (controlCount !== expectedCount) {
+    return {
+      candidates: [],
+      failures: [
+        {
+          candidate: {
+            kind: 'css',
+            selector: field.selector,
+            source: isGroup ? 'container' : 'path',
+          },
+          reason: 'cardinality-mismatch',
+          expected: String(expectedCount),
+          actual: String(controlCount),
+        },
+      ],
+    };
+  }
+  const representative = control.first();
+
+  const candidates: LocatorCandidate[] = [];
+  const name = await representative.getAttribute('name');
+  const testId = await representative.getAttribute('data-testid');
+  const ariaLabel = await representative.getAttribute('aria-label');
+  const id = await representative.getAttribute('id');
+  const positional = await representative.evaluate((element) => {
+    const parts: string[] = [];
+    let current: Element | null = element;
+    while (current) {
+      const tag = current.tagName.toLowerCase();
+      const parent: Element | null = current.parentElement;
+      let position = 1;
+      if (parent) {
+        position =
+          [...parent.children]
+            .filter((sibling) => sibling.tagName === current?.tagName)
+            .indexOf(current) + 1;
+      }
+      parts.unshift(`${tag}:nth-of-type(${position})`);
+      if (tag === 'body') break;
+      current = parent;
+    }
+    return parts.join(' > ');
+  });
+  const nameSelector = name ? `[name="${escapeCssAttribute(name)}"]` : null;
+  if (nameSelector)
+    candidates.push({
+      kind: 'css',
+      selector: nameSelector,
+      source: 'name',
+    });
+  if (isGroup && field.selector !== nameSelector) {
+    candidates.push({ kind: 'css', selector: field.selector, source: 'container' });
+  }
+  if (!isGroup && testId)
+    candidates.push({
+      kind: 'css',
+      selector: `[data-testid="${escapeCssAttribute(testId)}"]`,
+      source: 'test-id',
+    });
+  if (!isGroup && ariaLabel)
+    candidates.push({
+      kind: 'css',
+      selector: `[aria-label="${escapeCssAttribute(ariaLabel)}"]`,
+      source: 'aria-label',
+    });
+
+  const role = await roleOf(representative, field);
+  if (
+    !isGroup &&
+    role &&
+    field.label &&
+    field.labelSource &&
+    DIRECT_LABEL_SOURCES.has(field.labelSource)
+  ) {
+    candidates.push({ kind: 'role-name', role, name: field.label });
+  }
+  if (!isGroup && id && isPlausiblyStableId(id)) {
+    candidates.push({ kind: 'css', selector: `#${escapeCssIdentifier(id)}`, source: 'id' });
+  }
+  if (!isGroup) candidates.push({ kind: 'css', selector: positional, source: 'path' });
+
+  const unique: LocatorCandidate[] = [];
+  const failures: LocatorCandidateFailure[] = [];
+  for (const candidate of candidates) {
+    if (unique.some((existing) => JSON.stringify(existing) === JSON.stringify(candidate))) continue;
+    const locator = locatorForCandidate(root, candidate);
+    const count = await locator.count();
+    if (count === expectedCount) unique.push(candidate);
+    else {
+      failures.push({
+        candidate,
+        reason: 'cardinality-mismatch',
+        expected: String(expectedCount),
+        actual: String(count),
+      });
+    }
+  }
+  return { candidates: unique, failures };
+}
+
+async function roleOf(control: Locator, field: Field): Promise<string | null> {
+  const explicit = await control.getAttribute('role');
+  if (explicit) return explicit;
+  return field.type === 'select'
+    ? 'combobox'
+    : field.type === 'checkbox'
+      ? 'checkbox'
+      : field.type === 'radio'
+        ? 'radio'
+        : field.type === 'range'
+          ? 'slider'
+          : field.interaction.kind === 'type'
+            ? 'textbox'
+            : null;
+}
+
+function locatorForCandidate(root: LocatorRoot, candidate: LocatorCandidate): Locator {
+  return candidate.kind === 'css'
+    ? root.locator(candidate.selector)
+    : root.getByRole(candidate.role as Parameters<Page['getByRole']>[0], {
+        name: candidate.name,
+        exact: true,
+      });
+}
+
+async function verifyLocatorsOnFreshLoad(
+  page: Page,
+  url: string,
+  forms: Form[],
+  warnings: FormInspectionWarning[],
+  deadline: number,
+): Promise<void> {
+  if (deadline - Date.now() < 250) return;
+  const fresh = await page.context().newPage();
+  try {
+    await fresh.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: Math.max(1, Math.min(5_000, deadline - Date.now())),
+    });
+    await waitForDomQuiet(fresh, Math.max(1, Math.min(2_000, deadline - Date.now())));
+
+    const fields = forms.flatMap((form) => form.fields);
+    const stepIndexes = [...new Set(fields.map((field) => field.stepIndex ?? 0))].sort(
+      (left, right) => left - right,
+    );
+    let currentStep = 0;
+
+    for (const stepIndex of stepIndexes) {
+      while (currentStep < stepIndex && Date.now() < deadline) {
+        const next = await findNextControl(fresh);
+        if (!next) break;
+        await fillDiscoveryValues(next);
+        await next.click({ timeout: Math.max(1, Math.min(1_000, deadline - Date.now())) });
+        currentStep += 1;
+        await waitForDomQuiet(fresh, Math.max(1, Math.min(2_000, deadline - Date.now())));
+      }
+      if (currentStep !== stepIndex) continue;
+
+      for (const field of fields.filter((candidate) => (candidate.stepIndex ?? 0) === stepIndex)) {
+        if (Date.now() >= deadline) break;
+        await verifyFieldLocator(fresh, field, warnings);
+      }
+    }
+  } catch (error) {
+    // A verification load is evidence gathering, not permission to discard a
+    // successfully inspected page. Snapshot-only locators remain explicit.
+    warnings.push({
+      code: 'locator-not-replayable',
+      message: `Fresh-load locator verification stopped: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  } finally {
+    await fresh.close().catch(() => {});
+  }
+}
+
+async function verifyFieldLocator(
+  page: Page,
+  field: Field,
+  warnings: FormInspectionWarning[],
+): Promise<void> {
+  if (!field.locator) return;
+  const scopeFailures: LocatorCandidateFailure[] = [];
+  const root = await rootForScopes(page, field.locator.scopes, true, scopeFailures);
+  if (!root) {
+    warnings.push({
+      code: 'locator-not-replayable',
+      message: `No locator scope replayed with the expected fingerprint for ${field.label ?? field.name ?? field.id ?? 'an unnamed field'}.`,
+      candidateFailures: scopeFailures,
+    });
+    return;
+  }
+  const replayed: LocatorCandidate[] = [];
+  const candidateFailures: LocatorCandidateFailure[] = [...(field.locator.candidateFailures ?? [])];
+  for (const candidate of field.locator.candidates ?? []) {
+    const result = await candidateMatchesField(root, candidate, field);
+    if (result.matched) replayed.push(candidate);
+    else {
+      candidateFailures.push({
+        candidate,
+        reason: result.reason,
+        ...(result.expected === undefined ? {} : { expected: result.expected }),
+        ...(result.actual === undefined ? {} : { actual: result.actual }),
+      });
+    }
+  }
+  field.locator.candidateFailures = candidateFailures;
+  const preferred = replayed[0] ?? null;
+  if (!preferred) {
+    warnings.push({
+      code: 'locator-not-replayable',
+      message: `No locator candidate replayed with the expected cardinality and fingerprint for ${field.label ?? field.name ?? field.id ?? 'an unnamed field'}.`,
+      candidateFailures,
+    });
+    return;
+  }
+
+  field.locator.preferred = preferred;
+  field.locator.verification = 'fresh-load';
+  field.locator.candidates = [
+    ...replayed,
+    ...(field.locator.candidates ?? []).filter(
+      (candidate) =>
+        !replayed.some((verified) => JSON.stringify(candidate) === JSON.stringify(verified)),
+    ),
+  ];
+  if (preferred.kind === 'css') {
+    field.locator.selector = preferred.selector;
+    field.selector = preferred.selector;
+  } else {
+    const durableCss = replayed.find((candidate) => candidate.kind === 'css');
+    if (durableCss?.kind === 'css') {
+      field.locator.selector = durableCss.selector;
+      field.selector = durableCss.selector;
+    }
+  }
+}
+
+async function candidateMatchesField(
+  root: LocatorRoot,
+  candidate: LocatorCandidate,
+  field: Field,
+): Promise<
+  | { matched: true }
+  | {
+      matched: false;
+      reason: LocatorCandidateFailure['reason'];
+      expected?: string;
+      actual?: string;
+    }
+> {
+  const locator = locatorForCandidate(root, candidate);
+  const cardinality = cardinalityOf(field);
+  const expectedCount = cardinality.kind === 'group' ? cardinality.count : 1;
+  const isGroup = cardinality.kind === 'group';
+  const actualCount = await locator.count();
+  if (actualCount !== expectedCount) {
+    return {
+      matched: false,
+      reason: 'cardinality-mismatch',
+      expected: String(expectedCount),
+      actual: String(actualCount),
+    };
+  }
+
+  const observed = await locator.evaluateAll((elements, group) => {
+    const members = elements.map((element) => {
+      const tag = element.tagName.toLowerCase();
+      const role = (element.getAttribute('role') ?? '').toLowerCase();
+      const rawType = (element.getAttribute('type') ?? 'text').toLowerCase();
+      const inputTypes = new Set([
+        'text',
+        'email',
+        'tel',
+        'url',
+        'number',
+        'password',
+        'date',
+        'time',
+        'datetime-local',
+        'month',
+        'week',
+        'search',
+        'color',
+        'range',
+        'checkbox',
+        'radio',
+        'file',
+        'hidden',
+      ]);
+      const type =
+        tag === 'select'
+          ? 'select'
+          : tag === 'textarea'
+            ? 'textarea'
+            : tag === 'input'
+              ? inputTypes.has(rawType)
+                ? rawType
+                : 'text'
+              : 'custom';
+
+      let interactionKind: 'type' | 'choose' | 'toggle' | 'upload' | 'none';
+      if (role === 'combobox' || role === 'listbox' || type === 'select' || type === 'radio') {
+        interactionKind = 'choose';
+      } else if (type === 'checkbox') {
+        interactionKind = group ? 'choose' : 'toggle';
+      } else if (type === 'file') {
+        interactionKind = 'upload';
+      } else if (type === 'hidden') {
+        interactionKind = 'none';
+      } else {
+        interactionKind = 'type';
+      }
+      return {
+        type,
+        interactionKind,
+        name: element.getAttribute('name'),
+        value: element.getAttribute('value') ?? 'on',
+      };
+    });
+
+    let groupLabel = '';
+    const first = elements[0];
+    if (first && elements.length > 1) {
+      const fieldset = first.closest('fieldset');
+      if (fieldset && elements.every((element) => fieldset.contains(element))) {
+        groupLabel = fieldset.querySelector(':scope > legend')?.textContent?.trim() ?? '';
+      }
+
+      if (!groupLabel) {
+        const group = first.closest('[role="radiogroup"], [role="group"]');
+        if (group && elements.every((element) => group.contains(element))) {
+          groupLabel = group.getAttribute('aria-label')?.trim() ?? '';
+          if (!groupLabel) {
+            const rootNode = group.getRootNode() as Document | ShadowRoot;
+            groupLabel =
+              group
+                .getAttribute('aria-labelledby')
+                ?.split(/\s+/)
+                .filter(Boolean)
+                .map(
+                  (id) => rootNode.querySelector(`#${CSS.escape(id)}`)?.textContent?.trim() ?? '',
+                )
+                .filter(Boolean)
+                .join(' ') ?? '';
+          }
+        }
+      }
+    }
+
+    return { members, groupLabel };
+  }, isGroup);
+  const observedTypes = [...new Set(observed.members.map((member) => member.type))];
+  if (observedTypes.some((type) => type !== field.type)) {
+    return {
+      matched: false,
+      reason: 'type-mismatch',
+      expected: field.type,
+      actual: observedTypes.sort().join(','),
+    };
+  }
+  const observedInteractions = [
+    ...new Set(observed.members.map((member) => member.interactionKind)),
+  ];
+  if (observedInteractions.some((kind) => kind !== field.interaction.kind)) {
+    return {
+      matched: false,
+      reason: 'interaction-mismatch',
+      expected: field.interaction.kind,
+      actual: observedInteractions.sort().join(','),
+    };
+  }
+
+  // Type alone is not an identity. A positional selector for an anonymous
+  // text box can still point at a different text box after the DOM shifts.
+  // Only certify it when either the candidate itself is durable or the field
+  // has a semantic discriminator that we verify below.
+  const hasDirectLabel = Boolean(
+    field.label && field.labelSource && DIRECT_LABEL_SOURCES.has(field.labelSource),
+  );
+  const hasDurableCandidate =
+    candidate.kind === 'role-name' || (candidate.kind === 'css' && candidate.source !== 'path');
+  if (!hasDurableCandidate && !field.name && !hasDirectLabel) {
+    return { matched: false, reason: 'identity-unproven' };
+  }
+
+  if (field.name && observed.members.some((member) => member.name !== field.name)) {
+    return {
+      matched: false,
+      reason: 'name-mismatch',
+      expected: field.name,
+      actual: [...new Set(observed.members.map((member) => member.name ?? ''))].sort().join(','),
+    };
+  }
+
+  if (isGroup) {
+    const expectedValues = field.options.map((option) => option.value).sort();
+    const observedValues = observed.members.map((member) => member.value).sort();
+    if (JSON.stringify(observedValues) !== JSON.stringify(expectedValues)) {
+      return {
+        matched: false,
+        reason: 'option-values-mismatch',
+        expected: JSON.stringify(expectedValues),
+        actual: JSON.stringify(observedValues),
+      };
+    }
+    if (
+      hasDirectLabel &&
+      observed.groupLabel.replace(/\s+/g, ' ').trim() !== field.label?.replace(/\s+/g, ' ').trim()
+    ) {
+      return {
+        matched: false,
+        reason: 'label-mismatch',
+        expected: field.label ?? '',
+        actual: observed.groupLabel,
+      };
+    }
+  }
+
+  if (!isGroup && field.label && field.labelSource && DIRECT_LABEL_SOURCES.has(field.labelSource)) {
+    const accessibleName = await locator.evaluate((element) => {
+      const ariaLabel = element.getAttribute('aria-label')?.trim();
+      if (ariaLabel) return ariaLabel;
+
+      const rootNode = element.getRootNode() as Document | ShadowRoot;
+      const labelledBy = element
+        .getAttribute('aria-labelledby')
+        ?.split(/\s+/)
+        .filter(Boolean)
+        .map((id) => rootNode.querySelector(`#${CSS.escape(id)}`)?.textContent?.trim() ?? '')
+        .filter(Boolean)
+        .join(' ');
+      if (labelledBy) return labelledBy;
+
+      if (
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement ||
+        element instanceof HTMLTextAreaElement
+      ) {
+        const labels = [...(element.labels ?? [])]
+          .map((label) => label.textContent?.trim() ?? '')
+          .filter(Boolean)
+          .join(' ');
+        if (labels) return labels;
+      }
+      return element.closest('label')?.textContent?.trim() ?? '';
+    });
+    if (accessibleName.replace(/\s+/g, ' ').trim() !== field.label.replace(/\s+/g, ' ').trim()) {
+      return {
+        matched: false,
+        reason: 'label-mismatch',
+        expected: field.label,
+        actual: accessibleName,
+      };
+    }
+  }
+
+  return { matched: true };
 }
 
 async function findNextControl(page: Page) {
@@ -297,8 +1096,9 @@ async function scopesForFrame(frame: Frame): Promise<FieldScope[]> {
     const parent = current.parentFrame();
     if (!parent) break;
     const element = await current.frameElement();
-    const shadowScopes = await element.evaluate<FieldScope[]>((frameElement) => {
+    const shadowScopes = await element.evaluate<FieldScope[], string>((frameElement, pattern) => {
       const found: FieldScope[] = [];
+      const implausibleId = new RegExp(pattern, 'i');
       let current: Element | null = frameElement as Element;
 
       while (current) {
@@ -306,14 +1106,9 @@ async function scopesForFrame(frame: Frame): Promise<FieldScope[]> {
         if (!(root instanceof ShadowRoot)) break;
         const host: Element = root.host;
         let selector: string;
+        const candidates: LocatorCandidate[] = [];
 
-        if (
-          host.id &&
-          !/[:«»\s]/.test(host.id) &&
-          !/^[0-9a-f]{16,}$/i.test(host.id) &&
-          !/[-_][0-9a-f]{8,}$/i.test(host.id) &&
-          !/^(radix|headlessui|mui|mantine)-/i.test(host.id)
-        ) {
+        if (host.id && !implausibleId.test(host.id)) {
           selector = `#${CSS.escape(host.id)}`;
         } else {
           const parts: string[] = [];
@@ -337,24 +1132,114 @@ async function scopesForFrame(frame: Frame): Promise<FieldScope[]> {
           selector = parts.join(' > ');
         }
 
-        found.unshift({ kind: 'shadow', selector });
+        const hostName = host.getAttribute('name');
+        if (hostName) {
+          const candidate = `[name="${CSS.escape(hostName)}"]`;
+          if (root.querySelectorAll(candidate).length === 1) {
+            candidates.push({ kind: 'css', selector: candidate, source: 'name' });
+          }
+        }
+        const hostTestId = host.getAttribute('data-testid');
+        if (hostTestId) {
+          const candidate = `[data-testid="${CSS.escape(hostTestId)}"]`;
+          if (root.querySelectorAll(candidate).length === 1) {
+            candidates.push({ kind: 'css', selector: candidate, source: 'test-id' });
+          }
+        }
+        const hostAriaLabel = host.getAttribute('aria-label');
+        if (hostAriaLabel) {
+          const candidate = `[aria-label="${CSS.escape(hostAriaLabel)}"]`;
+          if (root.querySelectorAll(candidate).length === 1) {
+            candidates.push({ kind: 'css', selector: candidate, source: 'aria-label' });
+          }
+        }
+        if (host.id && !implausibleId.test(host.id)) {
+          candidates.push({ kind: 'css', selector: `#${CSS.escape(host.id)}`, source: 'id' });
+        }
+        candidates.push({ kind: 'css', selector, source: 'path' });
+
+        found.unshift({
+          kind: 'shadow',
+          selector,
+          candidates,
+          fingerprint: {
+            tag: host.tagName.toLowerCase(),
+            name: host.getAttribute('name'),
+            ariaLabel: host.getAttribute('aria-label'),
+            src: host.getAttribute('src'),
+          },
+        });
         current = host;
       }
 
       return found;
-    });
+    }, IMPLAUSIBLE_ID_PATTERN.source);
     const id = await element.getAttribute('id');
     const name = await element.getAttribute('name');
     const src = await element.getAttribute('src');
+    const testId = await element.getAttribute('data-testid');
+    const ariaLabel = await element.getAttribute('aria-label');
+    const positional = await element.evaluate((frameElement) => {
+      const parts: string[] = [];
+      let cursor: Element | null = frameElement as Element;
+      while (cursor) {
+        const tag = cursor.tagName.toLowerCase();
+        const parentElement: Element | null = cursor.parentElement;
+        let position = 1;
+        if (parentElement) {
+          position =
+            [...parentElement.children]
+              .filter((sibling) => sibling.tagName === cursor?.tagName)
+              .indexOf(cursor) + 1;
+        }
+        parts.unshift(`${tag}:nth-of-type(${position})`);
+        if (tag === 'body') break;
+        cursor = parentElement;
+      }
+      return parts.join(' > ');
+    });
     const selector =
-      id && isStableId(id)
+      id && isPlausiblyStableId(id)
         ? `#${escapeCssIdentifier(id)}`
         : name
           ? `iframe[name="${escapeCssAttribute(name)}"]`
           : src
             ? `iframe[src="${escapeCssAttribute(src)}"]`
             : 'iframe';
-    scopes.unshift(...shadowScopes, { kind: 'frame', selector });
+    const candidates: LocatorCandidate[] = [];
+    if (name)
+      candidates.push({
+        kind: 'css',
+        selector: `iframe[name="${escapeCssAttribute(name)}"]`,
+        source: 'name',
+      });
+    if (testId)
+      candidates.push({
+        kind: 'css',
+        selector: `[data-testid="${escapeCssAttribute(testId)}"]`,
+        source: 'test-id',
+      });
+    if (ariaLabel)
+      candidates.push({
+        kind: 'css',
+        selector: `[aria-label="${escapeCssAttribute(ariaLabel)}"]`,
+        source: 'aria-label',
+      });
+    if (id && isPlausiblyStableId(id))
+      candidates.push({ kind: 'css', selector: `#${escapeCssIdentifier(id)}`, source: 'id' });
+    if (src)
+      candidates.push({
+        kind: 'css',
+        selector: `iframe[src="${escapeCssAttribute(src)}"]`,
+        source: 'src',
+      });
+    candidates.push({ kind: 'css', selector: positional, source: 'path' });
+    scopes.unshift(...shadowScopes, {
+      kind: 'frame',
+      selector,
+      candidates,
+      fingerprint: { tag: 'iframe', name, ariaLabel, src },
+    });
     current = parent;
   }
 

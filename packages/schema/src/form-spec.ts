@@ -79,6 +79,61 @@ export const FieldOptionSchema = z.object({
 });
 
 /**
+ * What the filler must do with a field.
+ *
+ * HTML tag names are not enough here: a contenteditable textbox and an ARIA
+ * combobox can both be non-native `custom` controls while requiring completely
+ * different browser actions.
+ */
+export const FieldInteractionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('type') }),
+  z.object({
+    kind: z.literal('choose'),
+    mode: z.enum(['single', 'multiple']),
+    optionsStatus: z.enum(['complete', 'partial', 'dynamic']),
+  }),
+  z.object({ kind: z.literal('toggle') }),
+  z.object({ kind: z.literal('upload') }),
+  z.object({ kind: z.literal('none') }),
+]);
+
+/** One independently replayable way to address an element. */
+export const LocatorCandidateSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('css'),
+    selector: z.string().min(1),
+    source: z.enum(['name', 'test-id', 'aria-label', 'id', 'src', 'container', 'path']),
+  }),
+  z.object({
+    kind: z.literal('role-name'),
+    role: z.string().min(1),
+    name: z.string().min(1),
+  }),
+]);
+
+/** How many controls a field locator is supposed to address. */
+export const LocatorCardinalitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('single') }),
+  z.object({ kind: z.literal('group'), count: z.number().int().min(2) }),
+]);
+
+export const LocatorCandidateFailureSchema = z.object({
+  candidate: LocatorCandidateSchema,
+  reason: z.enum([
+    'cardinality-mismatch',
+    'type-mismatch',
+    'interaction-mismatch',
+    'identity-unproven',
+    'name-mismatch',
+    'option-values-mismatch',
+    'label-mismatch',
+    'scope-fingerprint-mismatch',
+  ]),
+  expected: z.string().optional(),
+  actual: z.string().optional(),
+});
+
+/**
  * A boundary crossed on the way from the page document to a control.
  *
  * A CSS selector alone cannot enter an iframe, and browser DOM APIs require an
@@ -87,22 +142,47 @@ export const FieldOptionSchema = z.object({
  */
 export const FieldScopeSchema = z.object({
   kind: z.enum(['frame', 'shadow']),
+  /** Deprecated compatibility selector. New consumers replay `candidates`. */
   selector: z.string().min(1),
+  candidates: z.array(LocatorCandidateSchema).optional(),
+  fingerprint: z
+    .object({
+      tag: z.string().min(1),
+      name: z.string().nullable(),
+      ariaLabel: z.string().nullable(),
+      src: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export const FieldLocatorSchema = z.object({
   scopes: z.array(FieldScopeSchema),
+  /** A field is normally one element; native radio/checkbox groups are exact sets. */
+  cardinality: LocatorCardinalitySchema,
+  /** Deprecated compatibility selector. New consumers replay `preferred`. */
   selector: z.string().min(1),
+  candidates: z.array(LocatorCandidateSchema).optional(),
+  /** Candidates rejected while building or replaying this locator. */
+  candidateFailures: z.array(LocatorCandidateFailureSchema).optional(),
+  preferred: LocatorCandidateSchema.nullable().optional(),
+  verification: z.enum(['fresh-load', 'snapshot-only']).optional(),
+  fingerprint: z
+    .object({
+      type: FieldTypeSchema,
+      interactionKind: z.enum(['type', 'choose', 'toggle', 'upload', 'none']),
+      name: z.string().nullable(),
+      label: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export const FieldSchema = z.object({
   /**
-   * How to find this control again in a browser.
+   * Compatibility CSS address for this control's inspection snapshot.
    *
-   * Stability is the whole job: `#id`, then `[name=]`, then a scoped path.
-   * Never an auto-generated class — those change on every deploy, and a
-   * selector that worked in the FormSpec but not at fill time is the failure
-   * mode that makes the whole system look unreliable.
+   * Live consumers should replay `locator.preferred` and its ordered fallbacks;
+   * only those carry fresh-load verification. Static HTML has no second page
+   * load with which to make a durability claim.
    */
   selector: z.string().min(1),
 
@@ -119,6 +199,7 @@ export const FieldSchema = z.object({
   name: z.string().nullable(),
   id: z.string().nullable(),
   type: FieldTypeSchema,
+  interaction: FieldInteractionSchema,
 
   /**
    * The visible label, and how we got it. Null when the page offers nothing —
@@ -169,6 +250,8 @@ export const FieldSchema = z.object({
   sensitive: z.boolean(),
 
   placeholder: z.string().nullable(),
+  /** Current values are evidence, never a substitute for the field's label. */
+  currentValues: z.array(z.string()),
   /** For select, radio groups, and checkbox groups. Empty for everything else. */
   options: z.array(FieldOptionSchema),
 
@@ -208,8 +291,12 @@ export const FormInspectionWarningSchema = z.object({
     'step-stalled',
     'closed-shadow-root',
     'branch-not-exhaustive',
+    'inspection-budget-exhausted',
+    'locator-not-replayable',
   ]),
   message: z.string().min(1),
+  /** Why each published candidate was rejected during fresh-load replay. */
+  candidateFailures: z.array(LocatorCandidateFailureSchema).optional(),
 });
 
 /**
@@ -231,6 +318,10 @@ export const FormSpecSchema = z.object({
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 export type LabelSource = z.infer<typeof LabelSourceSchema>;
 export type FieldOption = z.infer<typeof FieldOptionSchema>;
+export type FieldInteraction = z.infer<typeof FieldInteractionSchema>;
+export type LocatorCandidate = z.infer<typeof LocatorCandidateSchema>;
+export type LocatorCardinality = z.infer<typeof LocatorCardinalitySchema>;
+export type LocatorCandidateFailure = z.infer<typeof LocatorCandidateFailureSchema>;
 export type FieldScope = z.infer<typeof FieldScopeSchema>;
 export type FieldLocator = z.infer<typeof FieldLocatorSchema>;
 export type Field = z.infer<typeof FieldSchema>;
